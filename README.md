@@ -138,7 +138,7 @@ you were coming back to is worse than a full disk.
 
 Every one also works as `Ctrl-Space` then the same letter, so nothing depends
 on the chord layer. The mouse works too: click a pane to focus it, drag a
-border to resize, and your layout is remembered.
+border to resize, and it stays that way until you run `office off`.
 
 ### The keys are on the status bar
 
