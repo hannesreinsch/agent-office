@@ -1,0 +1,6 @@
+#!/bin/sh
+# Print the office SHELL pane's working directory. One tmux call, no shell
+# startup: the editor's file list asks this on every cursor move, so it has to
+# be cheap. Falls back to nothing, and the caller keeps what it had.
+tmux list-panes -t "${1:?session}" -F '#{@office_kind}|#{pane_current_path}' 2>/dev/null |
+  awk -F'|' '$1=="SHELL" {print $2; exit}'
