@@ -313,7 +313,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | need an image in a task | `⌃⇧n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
 | a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
-| everything is wedged | `office off`, then `office on`. Only the panes are lost |
+| everything is wedged | `office off`, then `office on`. That resets the layout completely |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
 *runs*, close it with `⌃⇧w` and reopen it rather than toggling it off and on.
@@ -350,10 +350,15 @@ at startup starts lying, and you steer by it and wonder why the arrows do
 nothing. The border reads `#{pane_title}`, which is what the pane shows right
 now.
 
-**Your layout is remembered.** Drag the borders where you want them. A detach
-keeps the layout because the tmux server is still alive; `office off` kills the
-server, which is the one moment it would be lost, so that is where it is saved
-to `~/.local/state/office/`.
+**`office off` is a reset, on purpose.** It keeps nothing: not the pane sizes,
+not what you parked, not the shape you dragged things into. That makes it the
+fix-it-all. Whatever you broke fiddling with the layout, off and on gives you
+the default office back, every time, with no saved state anywhere to explain the
+difference.
+
+**`office break` is the other half.** It detaches without stopping anything, and
+because the tmux server stays alive your layout survives exactly as it was, down
+to the pixel. Two verbs, two behaviours, nothing to configure.
 
 **Keybinding output is silenced on purpose.** Stray output from a `run-shell`
 binding makes tmux force the active pane into view-mode, where every Ctrl-Shift

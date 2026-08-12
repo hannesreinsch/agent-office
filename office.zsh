@@ -3,8 +3,8 @@
 # https://github.com/hannesreinsch/agent-office
 #
 #   office on         walk in — open your office and start the day
-#   office break      step out — detach; everything inside keeps running
-#   office off        go home — quit every office and stop the always-on stack
+#   office break      step out — detach; panes, sizes and agents all stay put
+#   office off        go home — quit everything, and reset the layout to default
 #
 #   office <repo>     open a different repo (fuzzy name, e.g. `office myproj`)
 #   office pick       fuzzy-pick from all your repos
@@ -348,25 +348,15 @@ _office_reap() {
   return 0
 }
 
-# --- remembering how you dragged the panes -----------------------------------
-# A detach keeps the layout (the tmux server is still alive); only `office off`
-# kills the server, so that is the one place worth saving. select-layout refuses
-# a layout whose pane count no longer matches, which makes a stale file harmless
-# — the office just opens in its default four-pane shape.
-_office_layout_file() { print -r -- "$HOME/.local/state/office/${1}.layout" }
-
-_office_layout_save() {                # <session>
-  local f; f=$(_office_layout_file "$1")
-  mkdir -p "${f:h}"
-  tmux list-windows -t "=$1" -F '#{window_layout}' 2>/dev/null | head -1 > "$f"
-}
-
-_office_layout_restore() {             # <session>
-  local f; f=$(_office_layout_file "$1")
-  # NB: select-layout takes a PANE target — "=session" alone is rejected with
-  # "can't find pane". The trailing colon makes it a window target.
-  [[ -s $f ]] && tmux select-layout -t "=$1:" "$(<$f)" 2>/dev/null
-}
+# --- going home is a reset -----------------------------------------------------
+# `office off` deliberately keeps NOTHING: not the pane sizes, not what you
+# parked, not the shape you dragged things into. It is the fix-it-all, so
+# whatever you broke fiddling with the layout, off and on gives you the default
+# office back every time, with no saved state anywhere to explain it.
+#
+# `office break` is the other half: it detaches without stopping anything, and
+# because the tmux server stays alive your layout survives exactly as it was.
+# Two verbs, two behaviours, no configuration.
 
 # label a pane. An agent overwrites #{pane_title} with whatever it is doing,
 # so the ROLE lives in a user option the app cannot touch, and the border shows
@@ -503,7 +493,6 @@ _office_open() {                       # <repo-path>
     done
     _office_even_desks "$s"
     _office_number "$s"
-    _office_layout_restore "$s"        # however you dragged them last time
     tmux select-pane -t "$main"
   fi
   cd "$dir"
@@ -810,6 +799,7 @@ office() {
       if (( ! $#live )) && (( ! $#always )); then print "office: nothing running"; return; fi
       print "going home means:"
       (( $#live )) && { print "  quit ${#live} office(s) + every agent in them:"; printf '    %s\n' $live }
+      (( $#live )) && print "  reset the layout to default: sizes, parked panes, all of it"
       (( $#always )) && print "  run '$OFFICE_ALWAYS_ON_STOP' (stops the always-on stack, Mac can sleep)"
       if [[ $2 != (-y|--yes) ]]; then
         print -n "go home? [y/N] "; read -q _ans 2>/dev/null; print
@@ -817,7 +807,6 @@ office() {
         unset _ans
       fi
       (( $#always )) && { print -P "%F{green}==> $OFFICE_ALWAYS_ON_STOP%f"; eval "$OFFICE_ALWAYS_ON_STOP" }
-      local sess; for sess in $live; do _office_layout_save "$sess"; done
       tmux kill-server 2>/dev/null
       print -P "%F{green}office closed. see you tomorrow.%f" ;;
 

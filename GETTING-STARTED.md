@@ -150,12 +150,16 @@ When one is finished, **Ctrl+Shift+W** closes that pane. It asks first.
 | | |
 |---|---|
 | `office on` | start work. Opens everything, exactly as you left it |
-| `office break` | stepping away. Detaches, and **everything keeps running** |
-| `office off` | done for the day. Closes everything, asks first |
+| `office break` | stepping away. Detaches, and **everything keeps running**, exactly as you left it |
+| `office off` | done for the day. Closes everything and **resets the layout**. Asks first |
 
 **Closing your terminal window does not stop anything.** It is the same as
 `office break`. Your agents keep working, and `office on` brings you back to
 the same panes in the same places. Only `office off` actually ends things.
+
+And `office off` is your escape hatch: it throws the layout away too, so if you
+have dragged panes into a mess or something looks wrong, off and on gives you a
+clean default office back. You cannot break it permanently.
 
 That is the mental shift from a desktop app: the work is not tied to the window
 you are looking at.
@@ -196,7 +200,7 @@ Nothing here ever needs a restart of anything.
 | the panes are in silly positions | `office layout` |
 | you closed something and cannot get it back | its key again, or `office show` |
 | you have no idea what is running | `office doctor` |
-| genuinely wedged | `office off`, then `office on` |
+| genuinely wedged | `office off`, then `office on`. Resets everything |
 
 `office doctor` is worth running once now, just to see it. It lists every pane
 and what it costs in memory. Agents are heavy, roughly half a gigabyte each,
