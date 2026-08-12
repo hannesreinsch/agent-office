@@ -1,7 +1,8 @@
 # agent-office
 
 **Build agents with agents, and talk to what you built, in one window.**
-Several coding-agent sessions side by side, plus a chat pane wired to your own
+Several coding-agent sessions side by side, each in its own git worktree, plus a
+shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 ```sh
@@ -13,7 +14,7 @@ office on
 │ 1 CLAUDE                    │ 4 SHELL      │  ^Space s
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2   ^Space n adds  │ 5 EDITOR     │  ^Space e
+│ 2 CLAUDE 2   ^Space n adds  │ 5 FILE EDITOR│  ^Space e
 │                 one more    │              │
 ├─────────────────────────────┼──────────────┤
 │ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ^Space c
@@ -236,12 +237,14 @@ live ones for exactly that reason.
 | `office off` | go home: quit every office, stop the stack, asks first |
 | `office <name>` | open another repo by fuzzy name |
 | `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
+| `office solo` | like `on`, but starts nothing: the panes and nothing in them |
 | `office desk` | one more session |
 | `office task <what>` | one more session, already working on `<what>` |
 | `office new [wt]` | one more session in its own git worktree |
 | `office chat` `shell` `edit` | toggle a right-strip pane |
 | `office sessions` | park or restore the whole left column |
 | `office renumber` | renumber the panes (the tmux hooks call this) |
+| `office layout` | rebuild the layout when a pane ends up somewhere wrong |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
@@ -359,7 +362,7 @@ the same letter does everything the chords do.
 
 **Pane numbers are ours, not tmux's.** tmux numbers panes by their position in
 the layout tree, which moving a pane leaves in an order your eye disagrees with
-(you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
+(you get 4 = FILE EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
 they always read down the left column and then down the right strip.
 
 **Pane borders stay quiet.** A border shows the pane's number, what it is, the

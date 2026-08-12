@@ -591,11 +591,11 @@ _office_strip_title() {
 #   +-------------------------------+-----------+
 #   |  CLAUDE                       | SHELL     |  ^Ss
 #   +-------------------------------+-----------+
-#   |  CLAUDE 2                     | EDITOR    |  ^Se
+#   |  CLAUDE 2                     | FILE ED.  |  ^Se
 #   |                               +-----------+
 #   |                               | CHAT      |  ^Sc  (opens on demand)
 #   +-------------------------------+-----------+
-#   |                               | EDITOR    |  ^Se
+#   |                               | FILE ED.  |  ^Se
 #   +-------------------------------+-----------+
 #
 # CHAT (^Sc) is the one pane that starts closed: point OFFICE_CHAT_CMD at your
@@ -616,7 +616,7 @@ _office_open() {                       # <repo-path>
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
     # The editor comes up too: everyone needs a file open sooner or later.
     editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' 'zsh -ic "while _office_pick_file; do :; done; exec zsh"')
-    _office_label "$editor" "EDITOR" EDITOR
+    _office_label "$editor" "FILE EDITOR" EDITOR
     # ...and the chat, but only once you have given it something to run.
     if (( OFFICE_CHAT_OPEN )); then
       local chat
@@ -788,7 +788,7 @@ _office_help() {
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
   print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}^Space s${r}"
   print -P "    ${d}├─────────────────────────────┼──────────────┤${r}"
-  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}^Space e${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}FILE EDITOR${r}  ${d}│${r} ${g}^Space e${r}"
   print -P "    ${d}│${r}              ${d}one more${r}       ${d}├──────────────┤${r}"
   print -P "    ${d}│${r}                             ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
   print -P "    ${d}└─────────────────────────────┴──────────────┘${r}"
@@ -803,7 +803,7 @@ _office_help() {
   print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
   print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
   print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
-  print -P "  ${g}s${r}    toggle the SHELL         ${g}e${r}  toggle the EDITOR"
+  print -P "  ${g}s${r}    toggle the SHELL         ${g}e${r}  toggle the FILE EDITOR"
   print -P "  ${g}c${r}    toggle the CHAT          ${g}a${r}  park/restore ALL sessions"
   print -P "  ${g}w${r} ${d}or${r} ${g}q${r}  CLOSE this pane     ${g}x${r}  park it, still running"
   print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"
@@ -823,7 +823,7 @@ ${r}"
   print -P "  ${g}office task X${r}  A new session already working on X."
   print -P "  ${g}office desk${r}    One more session in THIS repo, straight into the left column."
   print -P "                 ${d}Ctrl-Space a does the same. Four desks is the cap.${r}"
-  print -P "  ${g}office edit${r}    Toggle the EDITOR pane — fuzzy-pick a file, edit it in place."
+  print -P "  ${g}office edit${r}    Toggle the FILE EDITOR pane — fuzzy-pick a file, edit it in place."
   print -P "                 ${d}Ctrl-S saves · Ctrl-Z undo · mouse works.${r}"
   print -P "                 ${d}Ctrl-Q closes the FILE and returns you to the list;${r}"
   print -P "                 ${d}Esc at the list leaves the editor. Ctrl-Shift-e hides the pane.${r}"
@@ -858,7 +858,7 @@ ${r}"
   print -P "                 ${d}are listed first. Ctrl-S save · Ctrl-Q quit · Ctrl-Z undo${r}"
   print -P "                 ${d}Ctrl-F find · mouse and normal copy-paste all work.${r}"
   print -P "  ${g}edit <file>${r}    Open (or create) that file directly."
-  print -P "  ${g}office edit${r}    A dedicated EDITOR pane. ${d}Ctrl-Space e does it inline.${r}"
+  print -P "  ${g}office edit${r}    A dedicated FILE EDITOR pane. ${d}Ctrl-Space e does it inline.${r}"
   print -P "  ${g}n${r}              Neovim instead, when you want the full IDE.\n"
 
   print -P "${g}IF YOU FORGET ONE THING, REMEMBER THIS${r}"
@@ -898,7 +898,7 @@ office() {
     edit|editor|files)
       # loop the picker: quitting a file (Ctrl-Q) drops you back at the file
       # list, not at a shell. Esc at the list is how you actually leave.
-      _office_toggle EDITOR "EDITOR" 'zsh -ic "while _office_pick_file; do :; done; exec zsh"' ;;
+      _office_toggle EDITOR "FILE EDITOR" 'zsh -ic "while _office_pick_file; do :; done; exec zsh"' ;;
     sessions|desks)
       # the whole left column, in one key. Park them all, or bring them all back.
       local s p n=0

@@ -55,7 +55,7 @@ office on
 │ 1 CLAUDE                    │ 2 SHELL      │
 │                             │              │
 │   your coding agent         ├──────────────┤
-│   claude / codex / any CLI  │ 3 EDITOR     │
+│   claude / codex / any CLI  │ 3 FILE EDITOR│
 │                             │              │
 └─────────────────────────────┴──────────────┘
 ```
@@ -71,7 +71,7 @@ space.
 For `git status`, `npm test`, `ls`. You use it to *check* the agent's work: it
 says it fixed the tests, so you run them.
 
-**3. The editor (bottom right).** A file browser that follows the shell pane, so
+**3. The file editor (bottom right).** A file browser that follows the shell pane, so
 the two work together: `cd` in the shell to aim, browse and open in the editor.
 For reading what the agent did, or a quick manual fix.
 
