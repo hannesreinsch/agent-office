@@ -413,29 +413,23 @@ _office_reap() {
 # because the tmux server stays alive your layout survives exactly as it was.
 # Two verbs, two behaviours, no configuration.
 
+# label a pane. Borders carry IDENTITY only: which pane this is, what it is, and
+# what it is doing. The keys all live on the status strip, in one place, because
+# printing "^Space w" on a session was advertising a global action as if it
+# belonged to that pane, and printing every key on every border is clutter.
+#
 # label a pane. An agent overwrites #{pane_title} with whatever it is doing,
 # so the ROLE lives in a user option the app cannot touch, and the border shows
 # both: "CLAUDE . rename the auth module".
 #
 # @office_kind is the STABLE identity (CHAT, SHELL, EDITOR, CLAUDE) that
 # the toggles match on — the visible label carries a repo and a branch and moves.
-# The key each pane's border advertises, which is the one you actually want on
-# that pane and differs by kind:
-#
-#   a glance pane  its own toggle. The same key parks it and brings it back,
-#                  so parking is the natural verb: you will want it again.
-#   a session      ⌃⇧w, close. There is no per-session restore, because there
-#                  is no fixed slot to restore into, so closing is the honest
-#                  verb. (⌃⇧x still parks one, and ⌃⇧a parks the whole column.)
-typeset -gA _OFFICE_KEYS=(SHELL '^Space s' EDITOR '^Space e' CHAT '^Space c' CLAUDE '^Space w')
-
 _office_label() {                      # <pane> <label> [kind]
   # '#' is stripped: the label is rendered through tmux's format engine, where
   # #(...) runs a shell command. A branch name or an `office task` description
   # containing one would otherwise be executed every time the border redraws.
   tmux set -p -t "$1" @office_label "${2//\#/}" 2>/dev/null
   tmux set -p -t "$1" @office_kind "${3:-$2}" 2>/dev/null
-  tmux set -p -t "$1" @office_key "${_OFFICE_KEYS[${3:-$2}]}" 2>/dev/null
 }
 
 # say something to the operator. A keybinding runs with no terminal attached, so
