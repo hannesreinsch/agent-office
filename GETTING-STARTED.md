@@ -98,7 +98,12 @@ normally.)
 
 One thing worth knowing early: **Ctrl+Space, then `z`** blows the current pane
 up to fill the whole window, and again to put it back. When the agent is writing
-a lot and the pane feels cramped, that is the key.
+a lot and the pane feels cramped, that is the key. **Double-clicking inside a
+pane does the same thing**, if your hand is already on the mouse.
+
+**To copy something out, drag across it.** Let go and it is on your clipboard,
+in the shell and in the file editor both. No Cmd+C, no copy mode, nothing to
+press after it.
 
 That second one is the pattern for everything that is not movement: **press
 Ctrl+Space, let go, then press a letter.** It is two keystrokes rather than a

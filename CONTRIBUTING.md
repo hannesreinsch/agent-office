@@ -71,8 +71,9 @@ Include `tmux -V`, your terminal, and the output of:
 ```sh
 office doctor
 tmux list-panes -a -F '#{session_name} #{pane_id} #{@office_kind} #{pane_left},#{pane_top}'
-tmux list-keys -T root | grep -E ' M-| C-S-'
+tmux list-keys -T root | grep -E ' M-| C-S-|Mouse|Click'
 ```
 
 If a key does nothing, that last one plus your terminal's name is usually the
-whole answer.
+whole answer. It covers the mouse too: a double-click that will not zoom, or a
+drag that does not copy, shows up there as a missing or shadowed binding.
