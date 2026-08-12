@@ -416,7 +416,7 @@ _office_bar() {                        # <session>
   # One list, one separator. There used to be a second divider here marking
   # "toggles" from "actions", which is a distinction nothing else on the bar
   # shows: brightness means closed, and that is all it means.
-  out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
+  out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}q close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
@@ -558,7 +558,7 @@ _office_label() {                      # <pane> <label> [kind]
 
 # say something to the operator. A keybinding runs with no terminal attached, so
 # a bare `print` becomes stray run-shell output — and tmux shows THAT by forcing
-# the active pane into view-mode, where every Ctrl-Shift chord stops working.
+# the active pane into view-mode, where every office key stops working.
 # The status line is the only safe place to talk from.
 _office_say() {
   tmux display-message " office: $1" 2>/dev/null || print -u2 "office: $1"
@@ -645,7 +645,7 @@ _office_strip_title() {
 # CHAT (^Sc) is the one pane that starts closed: point OFFICE_CHAT_CMD at your
 # own agent's chat command first, or it is just another shell.
 #
-# ^Sn adds a session to the left column, ^Sw closes whatever pane you are on.
+# ^Sn adds a session to the left column, ^Sq closes whatever pane you are on.
 _OFFICE_DEFAULT_DESKS=${OFFICE_DEFAULT_DESKS:-1}
 _office_open() {                       # <repo-path>
   local dir=$1 s
@@ -729,7 +729,7 @@ _office_add_pane() {                   # <label> <command> [dir] [kind]
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
   if [[ $(_office_rank "$kind") == 9 ]] && (( $(_office_desk_count "$s") >= _OFFICE_MAX_DESKS )); then
-    _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Shift-w"
+    _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Space q"
     return 0
   fi
   slot=($(_office_place "$s" "$kind"))
@@ -870,14 +870,14 @@ _office_help() {
   print -P "  ${d}with no dashboard to stand up and no Slack app to register.\n${r}"
 
   print -P "${g}THE KEYS${r} ${d}— two rules, and the second one covers everything${r}"
-  print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
+  print -P "  ${g}Shift-←↑↓→${r}         move between panes"
   print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
   print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
   print -P "  ${g}c${r}    toggle the CHAT          ${g}s${r}  toggle the SHELL"
   print -P "  ${g}e${r}    toggle the FILE EDITOR   ${g}a${r}  park/restore ALL sessions"
-  print -P "  ${g}w${r} ${d}or${r} ${g}q${r}  CLOSE this pane     ${g}x${r}  park it, still running"
+  print -P "  ${g}q${r}    CLOSE this pane          ${g}x${r}  park it, still running"
   print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"
-  print -P "  ${g}h j k l${r} or arrows              move, if the chord will not reach you"
+  print -P "  ${g}←↑↓→${r} move too                  ${d}the one way out of an open file${r}"
   print -P "  ${g}|${r} ${g}-${r}  split raw               ${g}X${r}  close the whole office"
   print -P "  ${g}Enter${r}  scrollback / copy mode  ${g}r${r}  reload the tmux config"
   print -P "  ${d}Only the arrows are a chord, because they carry their modifier natively.${r}"
@@ -898,7 +898,7 @@ ${r}"
   print -P "  ${g}office edit${r}    Toggle the FILE EDITOR pane — fuzzy-pick a file, edit it in place."
   print -P "                 ${d}Ctrl-S saves · Ctrl-Z undo · mouse works.${r}"
   print -P "                 ${d}Ctrl-Q closes the FILE and returns you to the list;${r}"
-  print -P "                 ${d}Esc at the list leaves the editor. Ctrl-Shift-e hides the pane.${r}"
+  print -P "                 ${d}Esc at the list leaves the editor. Ctrl-Space e hides the pane.${r}"
   print -P "  ${g}office chat${r}    Toggle the $OFFICE_CHAT_LABEL pane. ${d}Ctrl-Space c inline.${r}"
   print -P "  ${g}office shell${r}   Toggle the SHELL pane. ${d}Ctrl-Space s inline.${r}"
   print -P "                 ${d}Toggled-off panes keep running — nothing is killed.${r}\n"
@@ -909,7 +909,7 @@ ${r}"
   print -P "  ${g}office clean${r}   Added too many? This is the way out. Pick panes to close:"
   print -P "                 ${d}Tab marks, Enter closes them, Esc closes nothing. Heaviest${r}"
   print -P "                 ${d}first, and collapsed panes are in the list too — they still${r}"
-  print -P "                 ${d}cost RAM. One at a time: Ctrl-Shift-w on the pane itself.${r}"
+  print -P "                 ${d}cost RAM. One at a time: Ctrl-Space q on the pane itself.${r}"
   print -P "  ${g}office list${r}    Same as doctor."
   print -P "  ${g}office update${r}  Pull the newest agent-office. Never happens on its own:"
   print -P "                 ${d}'office on' only tells you when you are behind.${r}"

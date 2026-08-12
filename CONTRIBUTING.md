@@ -19,8 +19,13 @@ A tmux cockpit for running several coding-agent sessions at once. Around 650
 lines of zsh, a tmux config, and one iTerm2 profile.
 
 **In scope:** making that faster, clearer or harder to get wrong. Support for
-other terminals that can deliver the chords. Support for agents other than
-Claude Code, provided it stays a variable and not a special case.
+agents other than Claude Code, provided it stays a variable and not a special
+case.
+
+**One action, one key.** No aliases, no "this still works if your fingers know
+it": a second way to close a pane is a second row in every table and a key bar
+that has to choose. A key that is replaced is removed, and `unbind`-ed by name
+in `office.tmux.conf` so a long-running server drops it on the next reload.
 
 **Out of scope:** a plugin system, a config file, a daemon, a package manager,
 a dependency that does what twenty lines already do. If a feature needs
@@ -37,7 +42,7 @@ tmux server, and everything has to survive that.
 - **Nothing destructive without a confirmation**, except `office clean --idle`,
   which exists to be unattended and says so.
 - **Keybindings never print.** Output from a `run-shell` binding makes tmux
-  force the active pane into view-mode, where every chord stops working. Use
+  force the active pane into view-mode, where every office key stops working. Use
   `_office_say`, which goes to the status line.
 - **Anything shown on a pane border is untrusted.** Labels are stripped of `#`
   before storage, because tmux renders them through its format engine where
