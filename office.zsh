@@ -707,13 +707,22 @@ _office_inventory() {
 # total MB across every office
 _office_total_mb() { _office_inventory | awk '{for(i=1;i<=NF;i++) if ($i ~ /MB$/) {gsub(/MB/,"",$i); s+=$i}} END {printf "%d", s+0}' }
 
-# --- an optional always-on stack ---------------------------------------------
-# If your setup has background services that should come up when you walk in and
-# go down when you go home, name them here and `office on`/`office off` become
-# the switch. Three variables, all empty by default, all plain shell:
-#   OFFICE_ALWAYS_ON_CHECK   exits 0 when the stack is up
-#   OFFICE_ALWAYS_ON_START   brings it up
-#   OFFICE_ALWAYS_ON_STOP    takes it down
+# --- off means off, including what is not in a pane --------------------------
+# `office off` kills every process group its panes own, which covers everything
+# you started inside the office. It cannot cover what you started OUTSIDE it: a
+# launchd service, a systemd unit, a docker stack, a tunnel. Those survive any
+# amount of killing inside tmux, and on macOS they are usually the reason the
+# machine will not sleep.
+#
+# There is no way for this package to guess what yours is, so you name it once
+# and `office on` / `office off` become the switch for it too:
+#
+#   OFFICE_ALWAYS_ON_CHECK   exits 0 when your stack is up
+#   OFFICE_ALWAYS_ON_START   brings it up          (run by `office on`)
+#   OFFICE_ALWAYS_ON_STOP    takes it down         (run by `office off`)
+#
+# Empty by default, because the honest default is to touch nothing you did not
+# ask for. Set them and going home really does mean everything is off.
 : ${OFFICE_ALWAYS_ON_CHECK:=false}
 : ${OFFICE_ALWAYS_ON_STOP:=}
 : ${OFFICE_ALWAYS_ON_START:=}
