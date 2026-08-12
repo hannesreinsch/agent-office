@@ -131,13 +131,18 @@ Now you are inside a file, and here is the bit nobody remembers:
 | **Ctrl+Q** | close the file, back to the file list |
 | **Ctrl+Z** | undo |
 | **Ctrl+F** | find |
-| **Esc** (at the file list) | leave the editor pane entirely |
+| **Esc** (at the file list) | leave the file list. The pane becomes an ordinary shell, and `Ctrl+Space e` brings the list back |
 
 **The editor shows these keys along its bottom edge while a file is open**, so
 you do not have to remember them. Look down.
 
 The path out is always the same: `Ctrl+Q` gets you back to the list, `Esc`
 leaves the list, `Ctrl+Space e` hides the pane.
+
+**Nothing you do in here can lose the pane.** Leave the list and it says so, in
+the pane, with the key that brings it back. That key works on every pane in the
+strip: if what a pane was running has stopped, its own key starts it again
+instead of hiding it.
 
 > **If your editor looks nothing like this** and shows no help at the bottom,
 > your `$EDITOR` points somewhere else: vim, or macOS's `nano`, which is really

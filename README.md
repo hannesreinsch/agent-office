@@ -14,10 +14,10 @@ office on
 │ 1 CLAUDE                    │ 4 SHELL      │  ^Space s
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2   ^Space n adds  │ 5 FILE EDITOR│  ^Space e
+│ 2 CLAUDE 2   ^Space n adds  │ 5 AGENT CHAT │  ^Space c
 │                 one more    │              │
 ├─────────────────────────────┼──────────────┤
-│ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ^Space c
+│ 3 CLAUDE 3                  │ 6 FILE EDITOR│  ^Space e
 │                             │              │
 └─────────────────────────────┴──────────────┘
    the agents that build it       the agent
@@ -154,7 +154,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | | |
 |---|---|
 | `n` | new session |
-| `s` `e` `c` | toggle shell / editor / chat |
+| `s` `c` `e` | toggle shell / chat / file editor. On a pane that quit whatever it was running, the same key restarts it |
 | `a` | park every session, bring them all back, or open one if there are none |
 | `w` or `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
@@ -348,11 +348,15 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | the chords do nothing at all | the iTerm profile is not your default. See below |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
+| the file editor pane is just a shell prompt | you left the file list. `Ctrl-Space e` rebuilds it |
+| the chat pane quit and left a prompt | `Ctrl-Space c` restarts it |
 | a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. That resets the layout completely |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
 *runs*, close it with `Ctrl-Space w` and reopen it rather than toggling it off and on.
+The one exception is a pane that has *stopped* running it: its own key restarts it
+instead of hiding it, so there is no way to end up with a pane you cannot revive.
 
 **If the chords do nothing:** iTerm2 > Settings > Profiles > "office" > Other
 Actions > Set as Default, then open a new window. Until then, `Ctrl-Space` and
