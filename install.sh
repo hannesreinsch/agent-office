@@ -12,7 +12,7 @@ LINE="source $HERE/office.zsh"
 if grep -qF "$LINE" $RC 2>/dev/null; then
   say "already sourced from $RC"
 else
-  print "\n# office — one command for a multi-Claude tmux cockpit\n$LINE" >> $RC
+  print "\n# office — one command for a multi-agent tmux cockpit\n$LINE" >> $RC
   say "added to $RC"
 fi
 
@@ -27,10 +27,10 @@ else
 fi
 tmux source-file $HOME/.tmux.conf 2>/dev/null && say "reloaded a running tmux"
 
-# --- 3. iTerm2 (optional) ----------------------------------------------------
-# Only iTerm2 can deliver Ctrl-Shift plus a LETTER: a terminal cannot encode
-# that (Ctrl+Z and Ctrl+Shift+Z are the same byte), so iTerm rewrites the chord
-# to ESC+letter and tmux reads it as M-<letter>. Skip this and everything still
+# --- 3. the chord layer (optional, per terminal) ------------------------------
+# Only the terminal can deliver Ctrl-Shift plus a LETTER: that combination has
+# no encoding (Ctrl+Z and Ctrl+Shift+Z are the same byte), so the terminal has
+# to translate the chord and send ESC+letter. Skip this and everything still
 # works with the Ctrl-Space prefix.
 DYN="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
 if [[ -d ${DYN:h} ]]; then
@@ -62,8 +62,16 @@ print(f"    {len(inherited)} of your own key mappings carried over")
 PY
   say "iTerm2 profile written: $DYN/office-keys.json"
   warn "iTerm2 > Settings > Profiles > 'office' > Other Actions > Set as Default"
+elif [[ -n $WSL_DISTRO_NAME || -e /proc/sys/fs/binfmt_misc/WSLInterop ]]; then
+  say "WSL detected. For the one-key chords, add the bindings from"
+  print "      $HERE/terminals/windows-terminal-keys.json"
+  print "      to Windows Terminal: Settings, then \"open JSON file\"."
+  warn "until then, Ctrl-Space and the same letter does everything"
 else
-  say "no iTerm2 found, skipping the chord layer (the prefix covers everything)"
+  say "no iTerm2 and no WSL: skipping the chord layer"
+  warn "Ctrl-Space and the same letter does everything the chords do"
+  print "      To wire the chords up in your own terminal, make Ctrl-Shift+<letter>"
+  print "      send ESC followed by that letter. See terminals/ for two examples."
 fi
 
 print

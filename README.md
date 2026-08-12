@@ -36,31 +36,61 @@ waiting on you, and a layout you rebuild by hand every morning.
 around it, and no state you have to maintain. It is about 600 lines of zsh and
 a tmux config. There is no daemon, no plugin manager, and no config file.
 
-## Install
+## Setup
+
+### macOS
 
 ```sh
+brew install tmux fzf fd micro bat
 git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
 ~/code/agent-office/install.sh
 exec zsh && office on
 ```
 
-The installer appends one line to your `.zshrc`, one line to your `.tmux.conf`,
-and writes an iTerm2 profile if you have iTerm2. It is idempotent, so re-run it
-after a `git pull`. To do it by hand instead:
+The installer adds one line to your `.zshrc`, one to your `.tmux.conf`, and if
+you use iTerm2 it writes a profile carrying the one-key chords. It prints the
+single manual step: **iTerm2 > Settings > Profiles > "office" > Other Actions >
+Set as Default**, then open a new window.
 
-```sh
-# .zshrc
-source ~/code/agent-office/office.zsh
-# .tmux.conf
-source-file ~/code/agent-office/office.tmux.conf
+**You do not need iTerm2.** Terminal.app, Ghostty, WezTerm and Alacritty all
+work; you lose only the one-key form, and `Ctrl-Space` then the same letter does
+everything. Apple Silicon and Intel are identical here, it is all shell.
+
+### Windows
+
+tmux does not run natively on Windows, so this lives inside **WSL2**, which is
+where you run your agent too.
+
+```powershell
+wsl --install          # then reboot and open your new Linux terminal
 ```
 
-**Requires:** `tmux` 3.4 or newer, `zsh`, `git`, [`fzf`](https://github.com/junegunn/fzf),
-[`fd`](https://github.com/sharkdp/fd), and of course
+Then, inside WSL:
+
+```sh
+sudo apt update && sudo apt install -y tmux zsh git fzf fd-find micro bat
+mkdir -p ~/.local/bin && ln -sf "$(which fdfind)" ~/.local/bin/fd   # Debian calls it fdfind
+git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
+~/code/agent-office/install.sh
+exec zsh && office on
+```
+
+The installer detects WSL and points at `terminals/windows-terminal-keys.json`.
+Paste those entries into Windows Terminal (Settings, then "open JSON file") for
+the one-key chords. Skip it and `Ctrl-Space` plus the letter still does
+everything.
+
+### Any other terminal
+
+The chords are ordinary escape sequences. Make `Ctrl-Shift+<letter>` send `ESC`
+followed by that letter, and `Ctrl-Shift+<arrow>` send `CSI 1;6 A-D`. The files
+in `terminals/` and `iterm/` are worked examples of exactly that.
+
+**Requires** `tmux` 3.4+, `zsh`, `git`, [`fzf`](https://github.com/junegunn/fzf),
+[`fd`](https://github.com/sharkdp/fd), and an agent CLI such as
 [Claude Code](https://claude.com/claude-code).
 **Optional:** [`micro`](https://micro-editor.github.io) for the editor pane,
-[`bat`](https://github.com/sharkdp/bat) for its file preview, iTerm2 for the
-Ctrl-Shift chords.
+[`bat`](https://github.com/sharkdp/bat) for its file preview.
 
 ## Three commands
 
@@ -80,9 +110,10 @@ you were coming back to is worse than a full disk.
 | chord | |
 |---|---|
 | `⌃⇧←↑↓→` | move between panes |
-| `⌃⇧n` | new Claude session, appended to the left column |
+| `⌃⇧n` | new session, appended to the left column |
 | `⌃⇧t` | **type a task, get a session already working on it** |
 | `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle shell / editor / chat |
+| `⌃⇧a` | park every session at once, or bring them all back |
 | `⌃⇧w` | close this pane, and get the memory back |
 | `⌃⇧x` | park this pane, still running, same key brings it back |
 | `⌃⇧z` | zoom this pane fullscreen and back |
@@ -98,9 +129,13 @@ the pane is closed and the border went with it. So the bar carries the whole
 set:
 
 ```
-+ new ⌃⇧n   │  shell ⌃⇧s · editor ⌃⇧e · chat ⌃⇧c
-               ^^^^^ dim = open        lit = closed ^^^^
++ new ⌃⇧n   │  sessions ⌃⇧a · shell ⌃⇧s · editor ⌃⇧e · chat ⌃⇧c
+               ^^^^^^^^ dim = open            lit = closed ^^^^
 ```
+
+It updates the instant a pane opens or closes, because `office` writes it into
+a tmux option rather than the status bar polling a command. A polled job is
+always one interval behind the thing it describes.
 
 Brightness means one thing and one thing only: **lit means that pane is
 closed**, so the thing standing out is the thing you cannot find. `new` sits
@@ -110,7 +145,7 @@ strip opens a new session.
 It ships with the optional theme, or take it on its own:
 
 ```tmux
-set -g status-left "#(~/code/agent-office/bin/office-bar '#{session_name}')"
+set -g status-left "#{@office_bar} "
 set -g status-left-length 70
 ```
 
@@ -143,7 +178,7 @@ Two things the installer handles that are easy to get wrong by hand:
 Its own toggle brings it back, in its proper place, or `office show` picks from
 everything parked.
 
-`⌃⇧w` closes a pane for good. Parking is not free, a parked Claude session
+`⌃⇧w` closes a pane for good. Parking is not free, a parked agent session
 still holds its 400 to 700MB, and `office doctor` lists parked panes alongside
 live ones for exactly that reason.
 
@@ -156,10 +191,12 @@ live ones for exactly that reason.
 | `office off` | go home: quit every office, stop the stack, asks first |
 | `office <name>` | open another repo by fuzzy name |
 | `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
-| `office desk` | one more Claude session |
-| `office task <what>` | one more Claude session, already working on `<what>` |
-| `office new [wt]` | one more Claude session in its own git worktree |
+| `office desk` | one more session |
+| `office task <what>` | one more session, already working on `<what>` |
+| `office new [wt]` | one more session in its own git worktree |
 | `office chat` `shell` `edit` | toggle a right-strip pane |
+| `office sessions` | park or restore the whole left column |
+| `office renumber` | renumber the panes (the tmux hooks call this) |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
@@ -167,6 +204,45 @@ live ones for exactly that reason.
 | `office help` | all of the above, with the diagram |
 
 The command is `office`. `ao` and `o` are aliases for it.
+
+## Bringing your own agent
+
+`office` does not know what Claude Code is. A session is a command and the chat
+pane is a command. Point them at yours.
+
+**The sessions** in the left column:
+
+```sh
+OFFICE_SESSION_CMD="my-agent"        # whatever you type to start it
+OFFICE_SESSION_LABEL="MY AGENT"      # what its panes are called
+```
+
+That is the whole integration. `⌃⇧n` opens one. `⌃⇧t` opens one already working
+on a task, by running `$OFFICE_SESSION_CMD "<your task>"`, so that one needs an
+agent that takes a prompt as its first argument. If yours does not, `⌃⇧n` still
+works and you type the task into the pane.
+
+**The chat pane** is separate, and it is for the conversational side of your
+agent rather than a coding session. Three shapes cover almost everything:
+
+```sh
+# 1. your agent has a REPL
+OFFICE_CHAT_CMD="my-agent chat"
+
+# 2. your agent writes a log and you want to watch it live
+OFFICE_CHAT_CMD="sh -c 'tail -f ~/.my-agent/stream.log'"
+
+# 3. a stream to watch AND a prompt to type at, in one pane
+OFFICE_CHAT_CMD="sh -c 'tail -f ~/.my-agent/stream.log & while read -r q; do my-agent ask \"$q\"; done'"
+OFFICE_CHAT_LABEL="MY AGENT"
+```
+
+Shape 3 is what a streaming chat actually is: something following the output in
+the background, and a loop reading your input. Anything that behaves like a
+terminal program works, because the pane is a terminal and nothing more.
+
+Put those lines in your `.zshrc` **above** the `source .../office.zsh` line,
+then `office off` and `office on`.
 
 ## Configuration
 
@@ -178,6 +254,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
 | `OFFICE_SESSION_CMD` | `claude` | **what a session is.** Any agent CLI |
 | `OFFICE_SESSION_LABEL` | `CLAUDE` | what its panes are called |
+| `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees |
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
@@ -213,7 +290,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
-| need an image in a task | `⌃⇧n`, then paste into Claude's own prompt |
+| need an image in a task | `⌃⇧n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
 | a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. Only the panes are lost |
@@ -232,10 +309,8 @@ the layout tree, which moving a pane leaves in an order your eye disagrees with
 (you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
 they always read down the left column and then down the right strip.
 
-**Each pane's border shows the key that toggles it.** A pane whose key you have
-to look up is a pane you will not use. Claude sessions show what they are
-working on instead.
-
+**Each pane's border shows the key that acts on it**: the chord that toggles a
+glance pane, `⌃⇧w` on a session, since closing is what you want from those. 
 **Nothing can trap you in a mode.** tmux drops a pane into view-mode on its own,
 and its key table does not inherit the root one, so every chord goes dead and
 the pane looks frozen (often with a red `returned 1` line). Every office
@@ -307,7 +382,7 @@ The two things it does own on the border are documented in the file itself:
 If you want office facts on your status line, they are all plain formats:
 
 ```tmux
-# panes in this office, and whether any Claude is waiting on you
+# panes in this office
 set -g status-right "#{window_panes} panes  #{session_name}"
 ```
 
