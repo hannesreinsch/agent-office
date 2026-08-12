@@ -22,6 +22,7 @@
 #   office doctor     what's running and what it costs in RAM (read-only)
 #   office clean      pick panes to close and reclaim their RAM
 #   office sweep      close offices you walked away from, and all they run
+#   office update     pull the newest agent-office (never happens on its own)
 #
 # Bare `office` prints this. `ao` and `o` are the short aliases.
 # Key bindings live in office.tmux.conf; `office help` lists every one of them.
@@ -380,6 +381,21 @@ _office_number() {                     # <session>
   _office_bar "$1"                     # the strip is only ever as fresh as this
 }
 
+# --- staying current, without surprising you ---------------------------------
+# `office on` fetches in the BACKGROUND and says nothing except when you are
+# behind. It never pulls on its own: this package is the thing drawing your
+# window, and changing it under you mid-session is how a morning gets ruined.
+# `office update` is the deliberate act, and it refuses on a dirty tree rather
+# than merging over your edits.
+_office_update_check() {
+  [[ -d $_OFFICE_HOME/.git ]] || return 0
+  ( git -C "$_OFFICE_HOME" fetch --quiet origin 2>/dev/null & ) >/dev/null 2>&1
+  local behind
+  behind=$(git -C "$_OFFICE_HOME" rev-list --count HEAD..@{upstream} 2>/dev/null)
+  (( behind > 0 )) && print -P "%F{240}  agent-office is $behind commit(s) behind — 'office update'%f"
+  return 0
+}
+
 # --- taking out the bins, so nobody has to remember to ---------------------
 # A parked pane is the only kind you can forget: it is invisible, and a parked
 # session still holds half a gigabyte. Anything parked and untouched this
@@ -610,6 +626,7 @@ _office_open() {                       # <repo-path>
   cd "$dir"
   _office_number "$s"                  # also writes the key strip
   _office_reap                         # walking in takes the bins out
+  _office_update_check
   _office_always_on_up                 # restore whatever `office off` stopped
   _office_attach "$s"
 }
@@ -707,7 +724,7 @@ _office_inventory() {
 # total MB across every office
 _office_total_mb() { _office_inventory | awk '{for(i=1;i<=NF;i++) if ($i ~ /MB$/) {gsub(/MB/,"",$i); s+=$i}} END {printf "%d", s+0}' }
 
-# --- off means off, including what is not in a pane --------------------------
+# --- your own start and stop commands ----------------------------------------
 # `office off` kills every process group its panes own, which covers everything
 # you started inside the office. It cannot cover what you started OUTSIDE it: a
 # launchd service, a systemd unit, a docker stack, a tunnel. Those survive any
@@ -717,25 +734,28 @@ _office_total_mb() { _office_inventory | awk '{for(i=1;i<=NF;i++) if ($i ~ /MB$/
 # There is no way for this package to guess what yours is, so you name it once
 # and `office on` / `office off` become the switch for it too:
 #
-#   OFFICE_ALWAYS_ON_CHECK   exits 0 when your stack is up
-#   OFFICE_ALWAYS_ON_START   brings it up          (run by `office on`)
-#   OFFICE_ALWAYS_ON_STOP    takes it down         (run by `office off`)
+#   OFFICE_ON_CMD          run when you walk in
+#   OFFICE_OFF_CMD         run when you go home
+#   OFFICE_RUNNING_CHECK   exits 0 when it is already up, so `office on` does
+#                          not start it twice
+#
+# (The older OFFICE_ALWAYS_ON_START / _STOP / _CHECK names still work.)
 #
 # Empty by default, because the honest default is to touch nothing you did not
 # ask for. Set them and going home really does mean everything is off.
-: ${OFFICE_ALWAYS_ON_CHECK:=false}
-: ${OFFICE_ALWAYS_ON_STOP:=}
-: ${OFFICE_ALWAYS_ON_START:=}
-_office_always_on() { eval "$OFFICE_ALWAYS_ON_CHECK"; }
+: ${OFFICE_ON_CMD:=${OFFICE_ALWAYS_ON_START:-}}                # run by `office on`
+: ${OFFICE_OFF_CMD:=${OFFICE_ALWAYS_ON_STOP:-}}                # run by `office off`
+: ${OFFICE_RUNNING_CHECK:=${OFFICE_ALWAYS_ON_CHECK:-false}}    # exits 0 when it is up
+_office_always_on() { eval "$OFFICE_RUNNING_CHECK"; }
 
 # walking in restores whatever going home stopped — `office on` is the exact
 # undo of `office off`. Skip it with `office solo` (tabs only, nothing started).
 _office_always_on_up() {
-  [[ -n $OFFICE_SOLO || -z $OFFICE_ALWAYS_ON_START ]] && return 0
-  command -v ${${(z)OFFICE_ALWAYS_ON_START}[1]} >/dev/null || return 0
+  [[ -n $OFFICE_SOLO || -z $OFFICE_ON_CMD ]] && return 0
+  command -v ${${(z)OFFICE_ON_CMD}[1]} >/dev/null || return 0
   _office_always_on && return 0
-  print -P "%F{green}==> $OFFICE_ALWAYS_ON_START%f"
-  eval "$OFFICE_ALWAYS_ON_START"
+  print -P "%F{green}==> $OFFICE_ON_CMD%f"
+  eval "$OFFICE_ON_CMD"
 }
 
 _office_help() {
@@ -744,12 +764,12 @@ _office_help() {
 
   print -P "${g}YOUR DAY${r} ${d}— these three are 95%% of it${r}"
   print -P "  ${g}office on${r}      Start working. Opens your office, and starts whatever"
-  print -P "                 ${d}else you told it to start (OFFICE_ALWAYS_ON_START).${r}"
+  print -P "                 ${d}else you told it to start (OFFICE_ON_CMD).${r}"
   print -P "                 ${d}Use it every morning, and to come back from a break.${r}"
   print -P "  ${g}office break${r}   Stepping away. Nothing stops — agents keep running,"
   print -P "                 ${d}the Mac stays busy. Lunch, a meeting, closing the laptop lid.${r}"
   print -P "  ${g}office off${r}     Done for the day. Quits every office and every agent in"
-  print -P "                 ${d}them${OFFICE_ALWAYS_ON_STOP:+, and runs '$OFFICE_ALWAYS_ON_STOP'}. Asks first.${r}\n"
+  print -P "                 ${d}them${OFFICE_OFF_CMD:+, and runs '$OFFICE_OFF_CMD'}. Asks first.${r}\n"
 
   print -P "${g}WHAT YOU GET${r} ${d}— ONE window. Everything visible at once.${r}"
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
@@ -806,6 +826,8 @@ ${r}"
   print -P "                 ${d}first, and collapsed panes are in the list too — they still${r}"
   print -P "                 ${d}cost RAM. One at a time: Ctrl-Shift-w on the pane itself.${r}"
   print -P "  ${g}office list${r}    Same as doctor."
+  print -P "  ${g}office update${r}  Pull the newest agent-office. Never happens on its own:"
+  print -P "                 ${d}'office on' only tells you when you are behind.${r}"
   print -P "  ${g}office sweep${r}   Offices you walked away from, still holding memory with no"
   print -P "                 ${d}window anywhere. Lists them, asks, then closes them and${r}"
   print -P "                 ${d}everything inside. 'office sweep 2' for a 2-hour threshold.${r}"
@@ -888,6 +910,16 @@ office() {
       (( back )) || _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD; exec zsh" \
                       "$(_office_root "$PWD")" CLAUDE
       _office_number "$s" ;;
+    update|upgrade)
+      [[ -d $_OFFICE_HOME/.git ]] || { print -u2 "office: $_OFFICE_HOME is not a git checkout"; return 1 }
+      if [[ -n $(git -C "$_OFFICE_HOME" status --porcelain) ]]; then
+        print -u2 "office: $_OFFICE_HOME has local changes. Commit or stash them first."
+        git -C "$_OFFICE_HOME" status --short | sed 's/^/  /'
+        return 1
+      fi
+      git -C "$_OFFICE_HOME" pull --ff-only || return 1
+      tmux source-file "$_OFFICE_HOME/office.tmux.conf" 2>/dev/null
+      print "updated. Reload your shells (or 'office off' and 'office on') to pick up the rest." ;;
     renumber)
       _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;
     sweep|stale)
@@ -941,13 +973,13 @@ office() {
       (( $#live )) && { print "  quit ${#live} office(s) + every agent in them:"; printf '    %s\n' $live }
       (( $#live )) && print "  reset the layout to default: sizes, parked panes, all of it"
       (( $#live )) && print "  kill every process any pane started, detached ones included"
-      (( $#always )) && print "  run '$OFFICE_ALWAYS_ON_STOP' (stops the always-on stack, Mac can sleep)"
+      (( $#always )) && print "  run '$OFFICE_OFF_CMD' (stops the always-on stack, Mac can sleep)"
       if [[ $2 != (-y|--yes) ]]; then
         print -n "go home? [y/N] "; read -q _ans 2>/dev/null; print
         [[ $_ans == y ]] || { unset _ans; print "still here."; return }
         unset _ans
       fi
-      (( $#always )) && { print -P "%F{green}==> $OFFICE_ALWAYS_ON_STOP%f"; eval "$OFFICE_ALWAYS_ON_STOP" }
+      (( $#always )) && { print -P "%F{green}==> $OFFICE_OFF_CMD%f"; eval "$OFFICE_OFF_CMD" }
       local -a groups; groups=(${(f)"$(_office_pane_groups)"})
       tmux kill-server 2>/dev/null
       (( $#groups )) && _office_kill_groups $groups
@@ -967,7 +999,7 @@ office() {
         print "no offices running"
       fi
       _office_always_on \
-        && print -P "always-on: %F{green}up%f (stop with '$OFFICE_ALWAYS_ON_STOP')" \
+        && print -P "always-on: %F{green}up%f (stop with '$OFFICE_OFF_CMD')" \
         || print "always-on: down (start with 'office on')" ;;
 
     clean|gc|tidy)

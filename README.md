@@ -243,6 +243,7 @@ live ones for exactly that reason.
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
 | `office sweep [h]` | close offices you walked away from, and everything in them |
+| `office update` | pull the newest agent-office |
 | `office clean --idle [h]` | no picker: close anything idle over `h` hours |
 | `office help` | all of the above, with the diagram |
 
@@ -306,9 +307,9 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
 | `OFFICE_CHAT_OPEN` | on once `OFFICE_CHAT_CMD` is set | whether the chat pane opens at startup |
-| `OFFICE_ALWAYS_ON_CHECK` | `false` | exits 0 when your stack is up |
-| `OFFICE_ALWAYS_ON_START` | *(empty)* | run by `office on` |
-| `OFFICE_ALWAYS_ON_STOP` | *(empty)* | run by `office off` |
+| `OFFICE_ON_CMD` | *(empty)* | your own command, run when you walk in |
+| `OFFICE_OFF_CMD` | *(empty)* | your own command, run when you go home |
+| `OFFICE_RUNNING_CHECK` | `false` | exits 0 when it is already up |
 
 The chat pane is the interesting one. Point `OFFICE_CHAT_CMD` at whatever
 talking to your agent looks like for you, and that becomes the pane:
@@ -322,10 +323,12 @@ The always-on trio is for anything that should come up when you sit down and go
 down when you leave, a local server, a tunnel, a sync daemon:
 
 ```sh
-OFFICE_ALWAYS_ON_CHECK='pgrep -q my-server'
-OFFICE_ALWAYS_ON_START='my-stack up'
-OFFICE_ALWAYS_ON_STOP='my-stack down'
+OFFICE_ON_CMD='my-stack up'
+OFFICE_OFF_CMD='my-stack down'
+OFFICE_RUNNING_CHECK='pgrep -q my-server'
 ```
+
+(The older `OFFICE_ALWAYS_ON_START` / `_STOP` / `_CHECK` names still work.)
 
 ## If something looks stuck
 
@@ -390,6 +393,12 @@ now.
 detached itself survives, and agent CLIs leave host and daemon processes behind
 that no pane is the parent of. So the process *group* of every pane is taken
 first and made sure of afterwards. Nothing outlives going home.
+
+**Updates never happen behind your back.** `office on` fetches in the
+background and says nothing unless you are behind, because this package is the
+thing drawing your window and changing it under you mid-session is how a morning
+gets ruined. `office update` is the deliberate act, and it refuses on a dirty
+tree rather than merging over your edits.
 
 **`office sweep` is for the offices you never closed.** An office survives a
 closed terminal on purpose, and the cost is that one from three days ago is
