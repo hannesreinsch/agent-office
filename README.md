@@ -76,6 +76,9 @@ you use iTerm2 it writes a profile carrying the one-key chords. It prints the
 single manual step: **iTerm2 > Settings > Profiles > "office" > Other Actions >
 Set as Default**, then open a new window.
 
+It changes no colours. If you want the look in the screenshots as well, that is
+`./install.sh --theme` — see [the theme](#the-theme-if-you-want-it) below.
+
 **You do not need iTerm2.** Terminal.app, Ghostty, WezTerm and Alacritty all
 work; you lose only the one-key form, and `Ctrl-Space` then the same letter does
 everything. Apple Silicon and Intel are identical here, it is all shell.
@@ -464,6 +467,34 @@ set -g status-right "#[fg=#f6f5f1]#(~/bin/my-status)  #[fg=#6a6c77]%H:%M "
 
 Whatever is in `#()` runs every five seconds and its first line is printed. Keep
 it fast, keep it one line.
+
+### And the terminal window, on iTerm2
+
+The tmux theme paints the bar and the borders, which leaves the window itself —
+background, the ANSI sixteen, the cursor, the glass — still set by your terminal.
+On iTerm2 you can take that too:
+
+```sh
+~/agent-office/install.sh --theme      # or: OFFICE_ITERM_THEME=1 ~/agent-office/install.sh
+```
+
+It merges `theme/iterm-office-theme.json` into the same `office` profile the
+chords already live in, so there is still one profile to make default and no
+second thing to switch between. Same palette as the tmux theme, the ANSI sixteen
+desaturated toward it so `git diff` and test output stay readable without
+glowing, and transparency `0.15` over a blur radius of `12`.
+
+**It is appearance only.** No font, no shell, no key mappings: a font you do not
+have installed is worse than the one you chose, so the theme does not touch it.
+Anything the file does not name stays inherited from your own profile.
+
+Re-run without `--theme` and the colours stay — a dynamic profile is just a
+file. To undo, delete the `office-keys.json` iTerm2 writes into
+`~/Library/Application Support/iTerm2/DynamicProfiles/` and re-run the
+installer, or make your old profile the default again. Two numbers are worth
+knowing: `Transparency` and `Blur Radius` are single keys in that JSON, so if
+`0.15` is too much glass for your desktop, edit it rather than dropping the
+theme.
 
 ## Your status bar stays yours
 

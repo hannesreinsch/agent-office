@@ -1,0 +1,186 @@
+{
+  "_": "office's look for iTerm2. Optional, exactly like theme/office-theme.tmux.conf: install.sh only merges this into the 'office' profile when you pass --theme, and keys starting with _ are stripped. Appearance only, so your font, your shell and your key mappings are untouched. Monochrome by conviction: state is tone, weight and inversion, never hue, and #C9903F is the one accent, meaning 'this needs you'. Transparency 0.15 with a blur radius of 12 is the setting this was tuned at; it is one number, change it to taste. To take the colours but not the glass, delete the Transparency, Blur and Blur Radius keys.",
+  "Ansi 0 Color": {
+    "Red Component": 0.10980392156862745,
+    "Green Component": 0.11764705882352941,
+    "Blue Component": 0.14901960784313725,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 1 Color": {
+    "Red Component": 0.6924639579543158,
+    "Green Component": 0.42228114008490003,
+    "Blue Component": 0.4363987871437236,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 10 Color": {
+    "Red Component": 0.5484844842284742,
+    "Green Component": 0.6891209718670077,
+    "Blue Component": 0.5559378516624043,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 11 Color": {
+    "Red Component": 0.6637986178077789,
+    "Green Component": 0.6198421407907424,
+    "Blue Component": 0.5000053037608485,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 12 Color": {
+    "Red Component": 0.5412406862745098,
+    "Green Component": 0.6362735294117647,
+    "Blue Component": 0.7464455882352942,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 13 Color": {
+    "Red Component": 0.659161336647335,
+    "Green Component": 0.5927625517812759,
+    "Blue Component": 0.7126492129246065,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 14 Color": {
+    "Red Component": 0.5097669613510145,
+    "Green Component": 0.6716840190411424,
+    "Blue Component": 0.6710424005440327,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 15 Color": {
+    "Red Component": 0.9647058823529412,
+    "Green Component": 0.9607843137254902,
+    "Blue Component": 0.9450980392156862,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 2 Color": {
+    "Red Component": 0.4608629649990838,
+    "Green Component": 0.6044142935678946,
+    "Blue Component": 0.47229158878504685,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 3 Color": {
+    "Red Component": 0.5444556243550052,
+    "Green Component": 0.5321525363181709,
+    "Blue Component": 0.41605417956656354,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 4 Color": {
+    "Red Component": 0.46274648393388773,
+    "Green Component": 0.557732275947028,
+    "Blue Component": 0.6756456729288575,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 5 Color": {
+    "Red Component": 0.5840194014447885,
+    "Green Component": 0.5087913312693497,
+    "Blue Component": 0.6441498452012385,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 6 Color": {
+    "Red Component": 0.4163830659536544,
+    "Green Component": 0.5808326203208556,
+    "Blue Component": 0.5815224598930482,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 7 Color": {
+    "Red Component": 0.788235294117647,
+    "Green Component": 0.792156862745098,
+    "Blue Component": 0.8156862745098039,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 8 Color": {
+    "Red Component": 0.3058823529411765,
+    "Green Component": 0.3137254901960784,
+    "Blue Component": 0.35294117647058826,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Ansi 9 Color": {
+    "Red Component": 0.7575563792640344,
+    "Green Component": 0.5096593070104755,
+    "Blue Component": 0.5237769540692989,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Background Color": {
+    "Red Component": 0.043137254901960784,
+    "Green Component": 0.047058823529411764,
+    "Blue Component": 0.06274509803921569,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Bold Color": {
+    "Red Component": 0.9647058823529412,
+    "Green Component": 0.9607843137254902,
+    "Blue Component": 0.9450980392156862,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Cursor Color": {
+    "Red Component": 0.6650729411764705,
+    "Green Component": 0.4919717647058823,
+    "Blue Component": 0.24598588235294117,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Cursor Guide Color": {
+    "Red Component": 0.9647058823529412,
+    "Green Component": 0.9607843137254902,
+    "Blue Component": 0.9450980392156862,
+    "Alpha Component": 0.06,
+    "Color Space": "sRGB"
+  },
+  "Cursor Text Color": {
+    "Red Component": 0.043137254901960784,
+    "Green Component": 0.047058823529411764,
+    "Blue Component": 0.06274509803921569,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Foreground Color": {
+    "Red Component": 0.788235294117647,
+    "Green Component": 0.792156862745098,
+    "Blue Component": 0.8156862745098039,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Link Color": {
+    "Red Component": 0.9647058823529412,
+    "Green Component": 0.9607843137254902,
+    "Blue Component": 0.9450980392156862,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Selected Text Color": {
+    "Red Component": 0.9647058823529412,
+    "Green Component": 0.9607843137254902,
+    "Blue Component": 0.9450980392156862,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Selection Color": {
+    "Red Component": 0.16470588235294117,
+    "Green Component": 0.17647058823529413,
+    "Blue Component": 0.21176470588235294,
+    "Alpha Component": 1.0,
+    "Color Space": "sRGB"
+  },
+  "Transparency": 0.15,
+  "Blur": true,
+  "Blur Radius": 12,
+  "Cursor Type": 1,
+  "Blinking Cursor": true,
+  "Use Cursor Guide": false,
+  "Minimum Contrast": 0.0,
+  "Use Bright Bold": true
+}
