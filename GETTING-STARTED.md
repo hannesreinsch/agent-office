@@ -81,8 +81,11 @@ separate conversational mode. Ignore it until you need it.
 **Click a pane with your mouse.** It works, and it is the honest answer for
 your first day.
 
-The keyboard version is **Ctrl+Shift and an arrow key**. Left, right, up, down,
+The keyboard version is **Shift and an arrow key**. Left, right, up, down,
 exactly where you would expect. Only that. Do not learn more yet.
+
+(Inside the editor pane, Shift+arrow selects text like it normally would. Use
+`Ctrl+Space` and an arrow to leave that one.)
 
 One thing worth knowing early: **Ctrl+Space, then `z`** blows the current pane
 up to fill the whole window, and again to put it back. When the agent is writing
@@ -174,7 +177,7 @@ Not for day one. Come back to this.
 
 | | |
 |---|---|
-| `⌃⇧←↑↓→` | move between panes |
+| `⇧←↑↓→` | move between panes |
 
 And `Ctrl+Space`, then:
 
@@ -191,8 +194,8 @@ And `Ctrl+Space`, then:
 Each pane's top border shows the key that acts on it, and the bar along the
 bottom lists the rest. **Whatever is bright on that bar is closed.**
 
-If Ctrl+Shift+arrow does nothing, your terminal is not sending it. Use
-**Ctrl+Space then an arrow** instead, or `h j k l`. Those always work.
+If Shift+arrow ever does not move you, you are in the editor pane, where it
+selects text instead. **Ctrl+Space then an arrow** always moves, everywhere.
 
 ---
 
