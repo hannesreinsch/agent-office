@@ -1,7 +1,8 @@
 # agent-office
 
-**Run several coding-agent sessions side by side, in one window, with one
-command.** Claude Code out of the box, any agent CLI with one variable.
+**Build agents with agents, and talk to what you built, in one window.**
+Several coding-agent sessions side by side, plus a chat pane wired to your own
+agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 ```sh
 office on
@@ -18,13 +19,21 @@ office on
 │ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ^Space c
 │                             │              │
 └─────────────────────────────┴──────────────┘
-        your agents               you, working
+   the agents that build it       the agent
+   claude / codex / your own      you built
 ```
 
-Agents own the wide left column, stacked and kept at equal height. Everything
-you only glance at shares the narrow strip on the right, and each of those four
-panes opens and closes with one chord. Closing the window kills nothing:
-`office on` puts you back exactly where you were, panes, layout and all.
+**Left: the agents that build.** Claude Code, Codex, or whatever CLI you use,
+stacked and kept at equal height. One variable points them at your agent, so
+nothing here knows or cares which one you run.
+
+**Right: the agent you built.** Once your own agent has a chat command, that
+pane is it: you talk to the thing you have been building, in the same window you
+built it in, and it does the work. No dashboard to stand up, no Slack app to
+register, no browser tab. If it runs in a terminal, it belongs in that pane.
+
+Closing the window kills nothing: `office on` puts you back exactly where you
+were, panes, layout and all.
 
 > **New to running an agent in the terminal?**
 > Start with **[GETTING-STARTED.md](GETTING-STARTED.md)**: what each pane is,
@@ -33,13 +42,20 @@ panes opens and closes with one chord. Closing the window kills nothing:
 
 ## Why
 
-Running three or four coding agents at once is normal now, and the tooling for
-it is not. You end up with a pile of terminal tabs, no idea which one is
-waiting on you, and a layout you rebuild by hand every morning.
+Running three or four coding agents at once is normal now. The tooling for it
+is not. You end up with a pile of terminal tabs, no idea which one is waiting
+on you, and a window layout you rebuild by hand every morning.
 
-`office` is one command that opens the whole thing, one chord scheme to move
-around it, and no state you have to maintain. It is about 600 lines of zsh and
-a tmux config. There is no daemon, no plugin manager, and no config file.
+That is the first half of what this fixes. The second half is what you do with
+those agents. People building an agent of their own hit the same wall every
+time: the thing works in a terminal, and then they lose a week standing up a
+dashboard or wiring a Slack app just to talk to it. The chat pane is that,
+already built. Point it at your agent and it is a place to give it work.
+
+So the shape is: **agents on the left writing the code, the agent you built on
+the right doing the work.** One window, one command, and no web app in the
+middle. It is about 850 lines of zsh and a tmux config. No daemon, no plugin manager,
+no config file, no network calls.
 
 ## Setup
 
