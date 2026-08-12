@@ -21,11 +21,13 @@
 #
 #   office doctor     what's running and what it costs in RAM (read-only)
 #   office clean      pick panes to close and reclaim their RAM
+#   office sweep      close offices you walked away from, and all they run
 #
 # Bare `office` prints this. `ao` and `o` are the short aliases.
 # Key bindings live in office.tmux.conf; `office help` lists every one of them.
 # Configure with the OFFICE_* variables below; see the README.
 
+_OFFICE_OWN_PGID=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
 _OFFICE_HOME=${0:A:h}                  # where this package lives, for its helpers
 CODE_ROOT="${CODE_ROOT:-$HOME/code}"
 OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = the one you are in
@@ -400,7 +402,63 @@ _office_reap() {
   (( $(tmux list-windows -t "=$_OFFICE_STASH" 2>/dev/null | wc -l) )) \
     || tmux kill-session -t "=$_OFFICE_STASH" 2>/dev/null
   (( n )) && print -P "%F{240}  tidied up: $n pane(s) parked over ${OFFICE_REAP_HOURS}h closed, ~${mb}MB back%f"
+  # Offices left running from another day are only reported, never closed for
+  # you: one of them might be four agents mid-task. `office sweep` is one word.
+  local -a stale; stale=(${(f)"$(_office_stale ${OFFICE_REAP_HOURS})"})
+  if (( $#stale )); then
+    local smb=0 l; for l in $stale; do smb=$(( smb + ${${(z)l}[3]} )); done
+    print -P "%F{yellow}  ${#stale} office(s) left open from earlier, holding ~${smb}MB%f — close them with '''office sweep'''"
+  fi
   return 0
+}
+
+# --- making sure nothing outlives the office ---------------------------------
+# tmux kill-server sends SIGHUP to each pane's children, which is enough for
+# anything still attached to a terminal and not enough for anything that
+# detached itself. Agent CLIs in particular leave host and daemon processes
+# behind that no pane is the parent of, and they hold hundreds of megabytes.
+#
+# So: take the process GROUP of every pane before killing the server, then make
+# sure those groups are gone afterwards. Our own group is excluded, because
+# `office off` is nearly always run from inside the office it is closing.
+_office_pane_groups() {                # [session]  (all offices when omitted)
+  local p g
+  local -a t; [[ -n $1 ]] && t=(-t "=$1") || t=(-a)
+  for p in ${(f)"$(tmux list-panes $t -F '#{pane_pid}' 2>/dev/null)"}; do
+    g=$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')
+    [[ -n $g && $g != $_OFFICE_OWN_PGID && $g -gt 1 ]] && print -r -- "$g"
+  done | sort -u
+}
+
+_office_kill_groups() {                # <pgid>...
+  local g
+  for g in "$@"; do kill -TERM -$g 2>/dev/null; done
+  sleep 0.4
+  for g in "$@"; do kill -KILL -$g 2>/dev/null; done
+}
+
+# Offices you walked away from. An office survives a closed terminal on purpose,
+# which is the whole point of `office break`, and the cost is that one left over
+# from days ago is still holding four agents and their memory with no window
+# anywhere.
+#
+# Scoped to tmux sessions this tool created, and nothing else. An earlier
+# version matched process NAMES, which swept in the desktop app, the tmux server
+# and every unrelated shell: a broom that wide is a footgun, not a feature.
+_office_stale() {                      # [hours] -> "<session> <idle-min> <MB>"
+  local hours=${1:-12} now=$(date +%s) line name attached act mb pid
+  for line in ${(f)"$(tmux list-sessions -F '#{session_name}|#{session_attached}|#{session_activity}' 2>/dev/null)"}; do
+    name=${${(s:|:)line}[1]}; attached=${${(s:|:)line}[2]}; act=${${(s:|:)line}[3]}
+    [[ $name == _* ]] && continue                  # the pane stash is not an office
+    (( attached )) && continue                     # you are looking at this one
+    [[ $act == <-> ]] || continue
+    (( (now - act) / 3600 >= hours )) || continue
+    mb=0
+    for pid in ${(f)"$(tmux list-panes -t "=$name" -F '#{pane_pid}' 2>/dev/null)"}; do
+      mb=$(( mb + $(_office_pane_mb "$pid") ))
+    done
+    print -r -- "$name $(( (now - act) / 60 )) $mb"
+  done
 }
 
 # --- going home is a reset -----------------------------------------------------
@@ -739,6 +797,9 @@ ${r}"
   print -P "                 ${d}first, and collapsed panes are in the list too — they still${r}"
   print -P "                 ${d}cost RAM. One at a time: Ctrl-Shift-w on the pane itself.${r}"
   print -P "  ${g}office list${r}    Same as doctor."
+  print -P "  ${g}office sweep${r}   Offices you walked away from, still holding memory with no"
+  print -P "                 ${d}window anywhere. Lists them, asks, then closes them and${r}"
+  print -P "                 ${d}everything inside. 'office sweep 2' for a 2-hour threshold.${r}"
   print -P "                 ${d}That is Claude Code's 'conversation moved to the background'${r}"
   print -P "                 ${d}screen, not the list. This restarts it. Nothing else is touched.${r}\n"
 
@@ -820,6 +881,31 @@ office() {
       _office_number "$s" ;;
     renumber)
       _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;
+    sweep|stale)
+      # `office sweep [hours]` — offices nobody has looked at in that long, and
+      # everything inside them. Default 12h, so yesterday's office is fair game
+      # and the one you detached at lunch is not.
+      local -a stale; stale=(${(f)"$(_office_stale ${2:-12})"})
+      if (( ! $#stale )); then print "office: nothing stale. Every office is either open or recent."; return; fi
+      local mb=0 line
+      for line in $stale; do mb=$(( mb + ${${(z)line}[3]} )); done
+      print -P "%F{yellow}${#stale} office(s) detached and idle, holding ~${mb}MB:%f"
+      for line in $stale; do
+        print "  ${${(z)line}[1]}  idle $(( ${${(z)line}[2]} / 60 ))h  ${${(z)line}[3]}MB"
+      done
+      if [[ $2 == (-y|--yes) || $3 == (-y|--yes) ]]; then :
+      else
+        print -n "close them, and everything running inside? [y/N] "; read -q _ans 2>/dev/null; print
+        [[ $_ans == y ]] || { unset _ans; print "left alone."; return }
+        unset _ans
+      fi
+      local -a groups
+      for line in $stale; do
+        groups+=(${(f)"$(_office_pane_groups "${${(z)line}[1]}")"})
+        tmux kill-session -t "=${${(z)line}[1]}" 2>/dev/null
+      done
+      (( $#groups )) && _office_kill_groups ${(u)groups}
+      print -P "swept ${#stale} office(s). %F{green}~${mb}MB%f back." ;;
     layout|fix|repair)
       _office_relayout "$(_office_sessname "$(_office_root "$PWD")")"; print "layout rebuilt." ;;
     hide|collapse)
@@ -845,6 +931,7 @@ office() {
       print "going home means:"
       (( $#live )) && { print "  quit ${#live} office(s) + every agent in them:"; printf '    %s\n' $live }
       (( $#live )) && print "  reset the layout to default: sizes, parked panes, all of it"
+      (( $#live )) && print "  kill every process any pane started, detached ones included"
       (( $#always )) && print "  run '$OFFICE_ALWAYS_ON_STOP' (stops the always-on stack, Mac can sleep)"
       if [[ $2 != (-y|--yes) ]]; then
         print -n "go home? [y/N] "; read -q _ans 2>/dev/null; print
@@ -852,7 +939,9 @@ office() {
         unset _ans
       fi
       (( $#always )) && { print -P "%F{green}==> $OFFICE_ALWAYS_ON_STOP%f"; eval "$OFFICE_ALWAYS_ON_STOP" }
+      local -a groups; groups=(${(f)"$(_office_pane_groups)"})
       tmux kill-server 2>/dev/null
+      (( $#groups )) && _office_kill_groups $groups
       print -P "%F{green}office closed. see you tomorrow.%f" ;;
 
     list|ls|status|doctor|check)
