@@ -219,6 +219,28 @@ on a *letter* cannot be sent by a terminal at all: `Ctrl+Z` and `Ctrl+Shift+Z`
 are the same byte, `0x1A`. That is why every action lives on the prefix instead
 of behind a per-terminal translation layer.
 
+### What the mouse does, and where it stops
+
+Two gestures, and one rule for both. **Double-click a pane** to zoom it and
+double-click again to come back: it is `Ctrl-Space z`, reached with the hand
+that is already on the mouse. **Drag across text** and it is on the system
+clipboard when you let go, with nothing to press after it.
+
+The rule is that **an app that asked for the mouse keeps it.** So a double-click
+still opens the file you hit in the file list, still places a cursor in an open
+file, and a drag inside `htop` or `lazygit` is still theirs. What you lose is
+tmux's own default double-click, which copied the word under it; a triple-click
+still copies the whole line.
+
+The FILE EDITOR is the one exception, and it is deliberate. micro and fzf both
+hold the mouse there, and neither can reach the system clipboard on macOS —
+micro copies a mouse selection to the PRIMARY selection, which is an X11 idea
+macOS does not have, so the text went nowhere you could paste from. Office keeps
+the *drag* for tmux in that one pane kind, gated on `@office_kind`, so the pane
+you read files in copies like the pane you read output in. Clicks and
+double-clicks there still belong to the app, and Shift+arrow still selects
+inside an open file.
+
 
 ## Park versus close
 
@@ -346,6 +368,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
+| a double-click does not zoom that pane | something in it holds the mouse: the file list opens what you hit, an open file places the cursor. `Ctrl-Space z` always works |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space w`, reopen with `Ctrl-Space c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
