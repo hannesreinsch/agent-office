@@ -360,8 +360,11 @@ key that acts on it, and what it is currently doing, but only when that last one
 is worth saying: a plain shell reports the machine's hostname as its title, so
 that gets suppressed rather than repeated on every pane.
 
-**Each pane's border shows the key that acts on it**: the chord that toggles a
-glance pane, `Ctrl-Space w` on a session, since closing is what you want there. 
+**Borders carry identity, the bar carries keys.** A border shows which pane it
+is, what it is, and what it is currently doing. It does not repeat the
+keybindings: printing one key per border meant advertising a global action as
+though it belonged to that pane, and printing all of them on all of them is
+noise. They are on the status strip, once. 
 **Nothing can trap you in a mode.** tmux drops a pane into view-mode on its own,
 and its key table does not inherit the root one, so every chord goes dead and
 the pane looks frozen (often with a red `returned 1` line). Every office
