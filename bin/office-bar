@@ -28,7 +28,7 @@ open=" $(tmux list-panes -t "=$s" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' '
 
 out="${ACTION}+ new ⌃⇧n${R}   ${BAR}│${R}  "
 sep=""
-for pair in "AGENT:agent:⌃⇧a" "SHELL:shell:⌃⇧s" "EDITOR:editor:⌃⇧e" "CHAT:chat:⌃⇧c"; do
+for pair in "SHELL:shell:⌃⇧s" "EDITOR:editor:⌃⇧e" "CHAT:chat:⌃⇧c"; do
   kind=${pair%%:*}; rest=${pair#*:}; name=${rest%%:*}; key=${rest#*:}
   [[ $open == *" $kind "* ]] && tone=$OPEN || tone=$SHUT
   out+="${sep}${tone}${name} ${key}${R}"

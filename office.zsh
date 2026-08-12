@@ -15,11 +15,9 @@
 #   office new [wt]   ...the same, but in its own git worktree
 #   office chat       toggle the chat pane                           (^Sc)
 #   office shell      toggle the shell pane                          (^Ss)
-#   office agents     toggle the agent view                          (^Sa)
 #   office edit       toggle the editor pane                         (^Se)
 #   office hide/show  collapse the pane you are on / bring one back  (^Sx)
 #   office layout     rebuild the two columns if they ever look wrong
-#   office fixagents  restart the agent view when it stops responding
 #
 #   office doctor     what's running and what it costs in RAM (read-only)
 #   office clean      pick panes to close and reclaim their RAM
@@ -32,6 +30,9 @@ CODE_ROOT="${CODE_ROOT:-$HOME/code}"
 OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = the one you are in
 # The chat pane: whatever talking to your agent looks like. Point it at your own
 # chat command and it becomes that. Left as a plain shell by default.
+# What a session IS. Point it at any agent CLI and the left column becomes that.
+OFFICE_SESSION_CMD="${OFFICE_SESSION_CMD:-claude}"
+OFFICE_SESSION_LABEL="${OFFICE_SESSION_LABEL:-CLAUDE}"
 OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
 OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-exec $SHELL}"
 
@@ -81,10 +82,10 @@ _office_desk_count() {
     | sort -n | awk 'NR==1 {l=$1} $1==l {n++} END {print n+0}'
 }
 
-# --- the right strip: agent view, shell, editor, chat, top to bottom ---------
+# --- the right strip: shell, editor, chat, top to bottom ---------------------
 # The order is data, so a pane that is toggled off and back on lands where it
 # belongs instead of at the bottom.
-typeset -gA _OFFICE_STRIP_ORDER=(AGENT 1 SHELL 2 EDITOR 3 CHAT 4)
+typeset -gA _OFFICE_STRIP_ORDER=(SHELL 1 EDITOR 2 CHAT 3)
 _office_rank() { print -r -- ${_OFFICE_STRIP_ORDER[$1]:-9} }
 
 # where a <kind> pane belongs in the strip: "<pane-id> <split-flag>", where the
@@ -109,7 +110,7 @@ _office_strip_slot() {                 # <session> <kind>
 # Where a pane of <kind> belongs: a target pane plus split-window/join-pane flags.
 #
 # Both columns can vanish. Park every Claude session and the left column is
-# gone; park the agent view, shell and editor and the strip is. tmux collapses a
+# gone; park the shell, editor and chat and the strip is. tmux collapses a
 # two-column layout the moment one side empties, and from then on "leftmost
 # pane" and "rightmost pane" are the same pane, so everything coming back lands
 # in one tall stack. This is what stops that: when a column is missing, the
@@ -209,7 +210,7 @@ _office_even_column() {                # <session> [left|right]
 _office_even_desks() { _office_even_column "$1" left }
 
 # tmux numbers panes by their position in the LAYOUT TREE, and join-pane leaves
-# that tree in an order the eye does not agree with: you get 4=EDITOR, 6=AGENT.
+# that tree in an order the eye does not agree with: you get 4=EDITOR, 6=SHELL.
 # Swapping cannot fix it (a swap moves the geometry too), and rebuilding the tree
 # means breaking every pane out and back. So the border shows OUR number, taken
 # straight from the geometry: down the left column, then down the right strip.
@@ -270,12 +271,12 @@ _office_layout_restore() {             # <session>
 # so the ROLE lives in a user option the app cannot touch, and the border shows
 # both: "CLAUDE . macos m4 development setup".
 #
-# @office_kind is the STABLE identity (CHAT, SHELL, EDITOR, CLAUDE, AGENT) that
+# @office_kind is the STABLE identity (CHAT, SHELL, EDITOR, CLAUDE) that
 # the toggles match on — the visible label carries a repo and a branch and moves.
 # The chord that toggles each pane, shown on its own border. A pane you have to
 # look up the key for is a pane you will not use. Claude sessions get no key
 # here on purpose: their border already carries what they are working on.
-typeset -gA _OFFICE_KEYS=(AGENT '⌃⇧a' SHELL '⌃⇧s' EDITOR '⌃⇧e' CHAT '⌃⇧c')
+typeset -gA _OFFICE_KEYS=(SHELL '⌃⇧s' EDITOR '⌃⇧e' CHAT '⌃⇧c')
 
 _office_label() {                      # <pane> <label> [kind]
   # '#' is stripped: the label is rendered through tmux's format engine, where
@@ -355,12 +356,11 @@ _office_strip_title() {
 # and every one of those four is a toggle:
 #
 #   +-------------------------------+-----------+
-#   |  CLAUDE                       | AGENT     |  ^Sa
-#   |                               | VIEW      |
+#   |  CLAUDE                       | SHELL     |  ^Ss
 #   +-------------------------------+-----------+
-#   |  CLAUDE 2                     | SHELL     |  ^Ss
+#   |  CLAUDE 2                     | EDITOR    |  ^Se
 #   |                               +-----------+
-#   |                               | EDITOR    |  ^Se  (opens on demand)
+#   |                               | CHAT      |  ^Sc  (opens on demand)
 #   +-------------------------------+-----------+
 #   |                               | EDITOR    |  ^Se
 #   +-------------------------------+-----------+
@@ -374,14 +374,12 @@ _office_open() {                       # <repo-path>
   local dir=$1 s
   s=$(_office_sessname "$dir")
   if ! tmux has-session -t "=$s" 2>/dev/null; then
-    local main editor strip agent n prev
-    main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' 'claude; exec zsh')
-    _office_label "$main" "CLAUDE" CLAUDE
+    local main editor strip n prev
+    main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
+    _office_label "$main" "$OFFICE_SESSION_LABEL" CLAUDE
     # the right strip first, at 28% — these are glance surfaces, and taking their
     # width once here is what leaves the sessions a full-width column.
-    agent=$(tmux split-window -h -l 28% -t "$main" -c "$dir" -P -F '#{pane_id}' 'claude agents; exec zsh')
-    _office_label "$agent" "AGENT VIEW" AGENT
-    strip=$(tmux split-window -v -t "$agent" -c "$dir" -P -F '#{pane_id}')
+    strip=$(tmux split-window -h -l 28% -t "$main" -c "$dir" -P -F '#{pane_id}')
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
     # The editor comes up too: everyone needs a file open sooner or later.
     # CHAT does NOT, because a chat pane is only worth the space once you have
@@ -394,8 +392,8 @@ _office_open() {                       # <repo-path>
     # C-style, not {2..$N}: zsh counts a brace range DOWNWARDS when the start
     # is past the end, so a single-desk default would silently open three.
     for (( n = 2; n <= _OFFICE_DEFAULT_DESKS; n++ )); do
-      prev=$(tmux split-window -v -t "$prev" -c "$dir" -P -F '#{pane_id}' 'claude; exec zsh')
-      _office_label "$prev" "CLAUDE $n" CLAUDE
+      prev=$(tmux split-window -v -t "$prev" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
+      _office_label "$prev" "$OFFICE_SESSION_LABEL $n" CLAUDE
     done
     _office_even_desks "$s"
     _office_number "$s"
@@ -419,7 +417,7 @@ _office_new() {                        # [worktree-name] -> extra Claude desk
   else print -u2 "office: no worktree or directory '$1'"; return 1
   fi
   label=$(basename "$dir")
-  [[ $dir == "$root" ]] && label="CLAUDE" || label="AGENT · $label"
+  [[ $dir == "$root" ]] && label="$OFFICE_SESSION_LABEL" || label="$OFFICE_SESSION_LABEL · $label"
 
   local s; s=$(_office_sessname "$root")
   tmux has-session -t "=$s" 2>/dev/null \
@@ -428,7 +426,7 @@ _office_new() {                        # [worktree-name] -> extra Claude desk
   # split the tallest desk in the left column, so agents stack down the left and
   # the right strip keeps its width
   local newp
-  newp=$(tmux split-window -v -t "$(_office_desk_pane "$s")" -c "$dir" -P -F '#{pane_id}' 'claude; exec zsh')
+  newp=$(tmux split-window -v -t "$(_office_desk_pane "$s")" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
   _office_label "$newp" "$label" CLAUDE
   _office_even_desks "$s"
   # not inside tmux and not on a terminal (a run-shell keybinding) — nothing to attach to
@@ -538,13 +536,13 @@ _office_help() {
 
   print -P "${g}WHAT YOU GET${r} ${d}— ONE window. Everything visible at once.${r}"
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE${r}                      ${d}│${r} ${g}AGENT VIEW${r}   ${d}│${r} ${g}⌃⇧a${r}"
+  print -P "    ${d}│${r} ${g}CLAUDE${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}⌃⇧s${r}"
   print -P "    ${d}├─────────────────────────────┤${r}──────────────${d}┤${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE 2${r}                    ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}⌃⇧s${r}"
+  print -P "    ${d}│${r} ${g}CLAUDE 2${r}                    ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}⌃⇧e${r}"
   print -P "    ${d}│${r}                             ${d}├──────────────┤${r}"
   print -P "    ${d}│${r}                             ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}⌃⇧e${r}"
   print -P "    ${d}├─────────────────────────────┤${r}──────────────${d}┤${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE 3${r}                    ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}     ${d}│${r} ${g}⌃⇧c${r}"
+  print -P "    ${d}│${r} ${g}CLAUDE 3${r}                    ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}⌃⇧c${r}"
   print -P "    ${d}└─────────────────────────────┴──────────────┘${r}"
   print -P "  ${d}LEFT is nothing but Claude sessions — three of them, open from the${r}"
   print -P "  ${d}start. RIGHT is everything you only glance at, top to bottom in the${r}"
@@ -557,7 +555,6 @@ _office_help() {
   print -P "  ${g}Ctrl-Shift-n${r}       NEW Claude session        ${d}left column, max 4${r}"
   print -P "  ${g}Ctrl-Shift-c${r}       toggle the CHAT pane"
   print -P "  ${g}Ctrl-Shift-s${r}       toggle the SHELL pane"
-  print -P "  ${g}Ctrl-Shift-a${r}       toggle the AGENT VIEW"
   print -P "  ${g}Ctrl-Shift-e${r}       toggle the EDITOR pane"
   print -P "  ${g}Ctrl-Shift-w${r}       CLOSE this pane           ${d}gone, and the RAM back${r}"
   print -P "  ${g}Ctrl-Shift-x${r}       park this pane            ${d}it keeps running${r}"
@@ -568,7 +565,7 @@ _office_help() {
   print -P "  ${d}where the chord is translated. Everything below works without it.\n${r}"
 
   print -P "${g}THE SAME THINGS, THE TWO-KEY WAY${r} ${d}— prefix is Ctrl-Space, then a letter${r}"
-  print -P "  ${g}a s e c${r}     agent view · shell · editor · chat ${d}(same toggles)${r}"
+  print -P "  ${g}s e c${r}       shell · editor · chat ${d}(same toggles)${r}"
   print -P "  ${g}n${r}           a new Claude session"
   print -P "  ${g}Z${r}           collapse this pane   ${g}z${r}  zoom it"
   print -P "  ${g}h j k l${r}     move left · down · up · right"
@@ -586,9 +583,7 @@ _office_help() {
   print -P "                 ${d}Run it 2-4x — the left column splits evenly. Each${r}"
   print -P "                 ${d}agent edits a separate checkout, so they never collide.${r}"
   print -P "  ${g}office new X${r}   Same, straight into worktree X."
-  print -P "  ${g}office task X${r}  A new Claude desk already working on X. The agent view"
-  print -P "                 ${d}cannot hand its sessions to panes (they belong to Claude${r}"
-  print -P "                 ${d}Code's daemon, not to a terminal) — this is the door that works.${r}"
+  print -P "  ${g}office task X${r}  A new session already working on X."
   print -P "  ${g}office desk${r}    One more Claude in THIS repo, straight into the left column."
   print -P "                 ${d}Ctrl-Space a does the same. Four desks is the cap.${r}"
   print -P "  ${g}office edit${r}    Toggle the EDITOR pane — fuzzy-pick a file, edit it in place."
@@ -607,7 +602,6 @@ _office_help() {
   print -P "                 ${d}first, and collapsed panes are in the list too — they still${r}"
   print -P "                 ${d}cost RAM. One at a time: Ctrl-Shift-w on the pane itself.${r}"
   print -P "  ${g}office list${r}    Same as doctor."
-  print -P "  ${g}office agents${r}  Agent view gone dead — arrows do nothing, cannot type?"
   print -P "                 ${d}That is Claude Code's 'conversation moved to the background'${r}"
   print -P "                 ${d}screen, not the list. This restarts it. Nothing else is touched.${r}\n"
 
@@ -649,15 +643,11 @@ office() {
     solo)
       OFFICE_SOLO=1 office on ;;
     desk|claude)
-      _office_add_pane "CLAUDE" 'claude; exec zsh' "$(_office_root "$PWD")" CLAUDE ;;
-    # A session dispatched from the agent view is owned by Claude Code's daemon
-    # and cannot be attached to a second terminal, so it can never become a pane.
-    # This is the same thought going through the door that does work: describe
-    # the task here, get a Claude desk already working on it.
+      _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
     task|do|go)
       shift
       (( $# )) || { print -u2 "usage: office task <what you want done>"; return 1 }
-      _office_add_pane "CLAUDE · $*" "claude ${(q)*}; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
+      _office_add_pane "$OFFICE_SESSION_LABEL · $*" "$OFFICE_SESSION_CMD ${(q)*}; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
     # the three right-strip panes are TOGGLES: same word closes what it opened.
     chat|talk)
       _office_toggle CHAT   "$OFFICE_CHAT_LABEL" "$OFFICE_CHAT_CMD" ;;
@@ -667,22 +657,10 @@ office() {
       # loop the picker: quitting a file (Ctrl-Q) drops you back at the file
       # list, not at a shell. Esc at the list is how you actually leave.
       _office_toggle EDITOR "EDITOR" 'zsh -ic "while edit; do :; done; exec zsh"' ;;
+    renumber)
+      _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;
     layout|fix|repair)
       _office_relayout "$(_office_sessname "$(_office_root "$PWD")")"; print "layout rebuilt." ;;
-    agent|agents|agentview)
-      _office_toggle AGENT "AGENT VIEW" 'claude agents; exec zsh' ;;
-    # Claude Code can move a conversation to the background, which leaves the
-    # agent pane showing a read-only "moved to the background" screen instead of
-    # the list: no navigation, no typing. Restarting the process is the cure.
-    # The tell is the footer — "enter to open" is the real list, "enter to
-    # return" is the dead overlay.
-    fixagents|restartagents)
-      local s p; s=$(_office_sessname "$(_office_root "$PWD")")
-      p=$(_office_pane_of_kind "$s" AGENT)
-      [[ -n $p ]] || { _office_say "no agent view pane in this office"; return 0 }
-      tmux respawn-pane -k -t "$p" 'claude agents; exec zsh'
-      print "agent view restarted." ;;
-    # ...and any pane at all can be stashed and brought back, zoom-style.
     hide|collapse)
       _office_hide "${2:-$(tmux display -p '#{pane_id}')}" ;;
     show|restore|back)
