@@ -69,25 +69,29 @@ else
 fi
 tmux source-file $HOME/.tmux.conf 2>/dev/null && say "reloaded a running tmux"
 
-# --- 3. the chord layer (optional, per terminal) ------------------------------
-# Only the terminal can deliver Ctrl-Shift plus a LETTER: that combination has
-# no encoding (Ctrl+Z and Ctrl+Shift+Z are the same byte), so the terminal has
-# to translate the chord and send ESC+letter. Skip this and everything still
-# works with the Ctrl-Space prefix.
+# --- 3. the iTerm2 look (only with --theme) -----------------------------------
+# There is no key layer any more. Every office key is Shift-arrow or the
+# Ctrl-Space prefix, and every terminal already sends both, so nothing here has
+# to touch your keyboard map. What is left is the palette, if you asked for it.
 DYN="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
-if [[ -d ${DYN:h} ]]; then
+# An earlier install wrote the retired Ctrl-Shift-arrow map into this same file.
+# It is OVERWRITTEN here, never deleted, and both the filename and the GUID stay
+# what they always were: iTerm remembers your default profile by GUID, and for
+# anyone who followed the old instruction and made "office" their default,
+# removing the file would take their default profile with it. The map the new
+# file carries is theirs alone; office no longer adds a single entry to it.
+if [[ -n $THEME && -d ${DYN:h} ]]; then
   mkdir -p $DYN
-  python3 - "$HERE/iterm/office-keys.json" "$DYN/office-keys.json" "$THEME" <<'PY'
+  python3 - "$HERE/iterm/office-profile.json" "$DYN/office-keys.json" "$THEME" <<'PROFILE'
 import json, plistlib, pathlib, sys
-src, dst = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-theme = sys.argv[3] if len(sys.argv) > 3 else ""
+src, dst, theme = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
 prof = json.loads(src.read_text())
 me = prof["Profiles"][0]
 
-# A dynamic profile REPLACES the parent's keyboard map rather than merging into
-# it, so a user's existing entries (Natural Text Editing's option-arrow word
-# jump, option-delete, cmd-arrow line ends) would silently disappear. Carry them
-# over; ours win on a collision.
+# A dynamic profile does not inherit from the profile you actually use unless it
+# is told to, so a themed office profile would otherwise hand you iTerm's stock
+# keyboard map and lose Natural Text Editing's option-arrow word jump. Name the
+# parent and carry its map across. office adds nothing of its own to it now.
 pl = pathlib.Path.home()/"Library/Preferences/com.googlecode.iterm2.plist"
 inherited = {}
 if pl.exists():
@@ -96,8 +100,7 @@ if pl.exists():
         guid = d.get("Default Bookmark Guid")
         for b in d.get("New Bookmarks", []):
             # Skip ourselves: once you follow the printed instruction and make
-            # "office" the default, a re-run would otherwise parent this profile
-            # to itself.
+            # "office" the default, a re-run would otherwise parent it to itself.
             if b.get("Guid") == guid and guid != me.get("Guid"):
                 inherited = dict(b.get("Keyboard Map") or {})
                 me["Dynamic Profile Parent Name"] = b.get("Name")
@@ -105,9 +108,7 @@ if pl.exists():
         pass
 
 # ...and once "office" IS your default there is no other profile left to read,
-# so the answer is whatever the last run already worked out. Without this, the
-# second install after following the instruction above silently hands your
-# option-arrow word jump back.
+# so the answer is whatever the last run already worked out.
 if not inherited and dst.exists():
     try:
         prev = json.loads(dst.read_text())["Profiles"][0]
@@ -117,32 +118,23 @@ if not inherited and dst.exists():
     except Exception:
         pass
 
-me["Keyboard Map"] = {**inherited, **me["Keyboard Map"]}
+me["Keyboard Map"] = inherited
 
-# The look, only when asked for. Appearance keys merge on top of whatever the
-# parent profile already gives you; anything not in the file stays yours.
-if theme:
-    look = json.loads(pathlib.Path(theme).read_text())
-    me.update({k: v for k, v in look.items() if not k.startswith("_")})
+# The look merges on top of whatever the parent profile already gives you;
+# anything not in the file stays yours.
+me.update({k: v for k, v in json.loads(pathlib.Path(theme).read_text()).items()
+           if not k.startswith("_")})
 
 dst.write_text(json.dumps(prof, indent=2) + "\n")
-print(f"    {len(inherited)} of your own key mappings carried over")
-if theme:
-    print("    palette, transparency and blur applied")
-PY
-  say "iTerm2 profile written: $DYN/office-keys.json"
-  [[ -n $THEME ]] || print "      (bindings only. Want the look too? ./install.sh --theme)"
+print(f"    {len(inherited)} of your own key mappings carried over untouched")
+print("    palette, transparency and blur applied")
+PROFILE
+  say "iTerm2 profile written: $DYN/office-keys.json (look only, no key entries)"
   warn "iTerm2 > Settings > Profiles > 'office' > Other Actions > Set as Default"
-elif [[ -n $WSL_DISTRO_NAME || -e /proc/sys/fs/binfmt_misc/WSLInterop ]]; then
-  say "WSL detected. For the one-key chords, add the bindings from"
-  print "      $HERE/terminals/windows-terminal-keys.json"
-  print "      to Windows Terminal: Settings, then \"open JSON file\"."
-  warn "until then, Ctrl-Space and the same letter does everything"
+elif [[ -n $THEME ]]; then
+  say "no iTerm2: skipping the look. Every key works without it"
 else
-  say "no iTerm2 and no WSL: skipping the chord layer"
-  warn "Ctrl-Space and the same letter does everything the chords do"
-  print "      To wire the chords up in your own terminal, make Ctrl-Shift+<letter>"
-  print "      send ESC followed by that letter. See terminals/ for two examples."
+  say "the keys need no terminal setup. Want the look too? ./install.sh --theme"
 fi
 
 print

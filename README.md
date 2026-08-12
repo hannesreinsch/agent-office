@@ -72,17 +72,18 @@ exec zsh && office on
 Clone it wherever you like; the installer works out its own path. Examples in
 this README use `~/agent-office`.
 
-The installer adds one line to your `.zshrc`, one to your `.tmux.conf`, and if
-you use iTerm2 it writes a profile carrying the one-key chords. It prints the
-single manual step: **iTerm2 > Settings > Profiles > "office" > Other Actions >
-Set as Default**, then open a new window.
+The installer adds one line to your `.zshrc` and one to your `.tmux.conf`. That
+is the whole install: **no keyboard map, in any terminal.** Every office key is
+either `Shift+arrow` or the `Ctrl-Space` prefix, and every terminal on every OS
+already sends both.
 
 It changes no colours. If you want the look in the screenshots as well, that is
-`./install.sh --theme` — see [the theme](#the-theme-if-you-want-it) below.
+`./install.sh --theme`, which writes an iTerm2 profile — see
+[the theme](#the-theme-if-you-want-it) below.
 
-**You do not need iTerm2.** Terminal.app, Ghostty, WezTerm and Alacritty all
-work; you lose only the one-key form, and `Ctrl-Space` then the same letter does
-everything. Apple Silicon and Intel are identical here, it is all shell.
+**Any terminal works.** iTerm2, Terminal.app, Ghostty, WezTerm, Alacritty: the
+keys are identical in all of them, with nothing to configure. Apple Silicon and
+Intel are identical here too, it is all shell.
 
 ### Windows
 
@@ -107,16 +108,8 @@ That is Ubuntu or Debian, which is what `wsl --install` gives you. On Fedora or
 Arch swap in `dnf` or `pacman`; the package names are the same and `fd` is not
 renamed there.
 
-The installer detects WSL and points at `terminals/windows-terminal-keys.json`.
-Paste those entries into Windows Terminal (Settings, then "open JSON file") for
-the one-key chords. Skip it and `Ctrl-Space` plus the letter still does
-everything.
-
-### Any other terminal
-
-The chords are ordinary escape sequences. Make `Ctrl-Shift+<letter>` send `ESC`
-followed by that letter, and `Ctrl-Shift+<arrow>` send `CSI 1;6 A-D`. The files
-in `terminals/` and `iterm/` are worked examples of exactly that.
+Windows Terminal needs nothing pasted into it: `Shift+arrow` and `Ctrl-Space`
+are ordinary sequences it already sends.
 
 **A note if you do not use zsh.** `office` is a zsh function, so zsh has to be
 installed, but it does not have to be your login shell: run `zsh` and source it
@@ -156,23 +149,25 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | `n` | new session |
 | `c` `s` `e` | toggle chat / shell / file editor. On a pane that quit whatever it was running, the same key restarts it |
 | `a` | park every session, bring them all back, or open one if there are none |
-| `w` or `q` | close this pane |
+| `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
 | `z` | zoom this pane full screen, and back. A double-click does the same |
-| `h j k l` or arrows | move, if your terminal will not send the chord |
+| arrows | move, and the only way out of a file you have open |
 
 
 Two rules, and the second covers everything. Movement is a chord because it is
 what you do most and arrows carry their modifier natively; every action is the
 prefix, which is the tmux convention and needs **no terminal configuration on
-any platform**. The mouse works too: click a pane to focus it, drag a border to
+any platform**. **One action, one key** — there is no second way to close a
+pane or move between them, because a scheme with synonyms is one you have to
+read twice to learn once. The mouse works too: click a pane to focus it, drag a border to
 resize, **double-click a pane to zoom it** and again to come back, and **drag
 across text to copy it** — it is on the system clipboard the moment you let go,
 in the shell and in the file editor both. It stays that way until `office off`.
 
 ### The keys are on the status bar
 
-A pane's border carries the chord that toggles it, which is no help at all once
+A pane's border carries the key that toggles it, which is no help at all once
 the pane is closed and the border went with it. So the bar carries the whole
 set:
 
@@ -214,10 +209,12 @@ there `Ctrl+Q` closes it back to the list, or `Ctrl+Space` and an arrow moves
 out directly. The prefix always wins, from anywhere, including from inside an
 editor or a scrollback.
 
-`Ctrl+Shift+arrow` still works if your fingers already know it. And Ctrl+Shift
-on a *letter* cannot be sent by a terminal at all: `Ctrl+Z` and `Ctrl+Shift+Z`
-are the same byte, `0x1A`. That is why every action lives on the prefix instead
-of behind a per-terminal translation layer.
+This used to answer to `Ctrl+Shift+arrow` as well, and that alias is **gone**.
+It was the only reason the installer ever asked to write a key map into your
+terminal: `Ctrl+Shift` on a *letter* cannot be sent at all (`Ctrl+Z` and
+`Ctrl+Shift+Z` are the same byte, `0x1A`), and on an *arrow* it needed a
+per-terminal translation layer for a movement `Shift+arrow` already does. One
+scheme, no setup, nothing to relearn per machine.
 
 ### What the mouse does, and where it stops
 
@@ -248,7 +245,7 @@ inside an open file.
 Its own toggle brings it back, in its proper place, or `office show` picks from
 everything parked.
 
-`Ctrl-Space w` closes a pane for good. Parking is not free, a parked agent session
+`Ctrl-Space q` closes a pane for good. Parking is not free, a parked agent session
 still holds its 400 to 700MB, and `office doctor` lists parked panes alongside
 live ones for exactly that reason.
 
@@ -369,23 +366,24 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
 | a double-click does not zoom that pane | something in it holds the mouse: the file list opens what you hit, an open file places the cursor. `Ctrl-Space z` always works |
-| changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space w`, reopen with `Ctrl-Space c` |
-| the chords do nothing at all | the iTerm profile is not your default. See below |
+| changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space q`, reopen with `Ctrl-Space c` |
+| `Ctrl-Space w` does nothing | `w` is gone: it is `Ctrl-Space q` now, and it is the only close key |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
 | the file editor pane is just a shell prompt | you left the file list. `Ctrl-Space e` rebuilds it |
 | the chat pane quit and left a prompt | `Ctrl-Space c` restarts it |
-| a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
+| a pane went red with `returned 1` | it is in a mode. Any office key now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. That resets the layout completely |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
-*runs*, close it with `Ctrl-Space w` and reopen it rather than toggling it off and on.
+*runs*, close it with `Ctrl-Space q` and reopen it rather than toggling it off and on.
 The one exception is a pane that has *stopped* running it: its own key restarts it
 instead of hiding it, so there is no way to end up with a pane you cannot revive.
 
-**If the chords do nothing:** iTerm2 > Settings > Profiles > "office" > Other
-Actions > Set as Default, then open a new window. Until then, `Ctrl-Space` and
-the same letter does everything the chords do.
+**If a key does nothing, it is not your terminal.** Nothing office binds needs
+terminal support beyond `Shift+arrow` and `Ctrl-Space`. Reload with
+`Ctrl-Space r`, and if a retired key still answers somewhere, that server has
+not re-read the config: `tmux source-file ~/.tmux.conf`.
 
 ## Details worth knowing
 
@@ -405,10 +403,10 @@ keybindings: printing one key per border meant advertising a global action as
 though it belonged to that pane, and printing all of them on all of them is
 noise. They are on the status strip, once. 
 **Nothing can trap you in a mode.** tmux drops a pane into view-mode on its own,
-and its key table does not inherit the root one, so every chord goes dead and
+and its key table does not inherit the root one, so every key goes dead and
 the pane looks frozen (often with a red `returned 1` line). Every office
 keybinding exits non-zero-proof now, and the movement, zoom, close and park
-chords all cancel the mode first, so there is always a way out.
+keys all cancel the mode first, so there is always a way out.
 
 **A missing column rebuilds itself.** Park every session, or every glance pane,
 and tmux collapses the two-column layout: from then on the leftmost and
@@ -458,8 +456,8 @@ because the tmux server stays alive your layout survives exactly as it was, down
 to the pixel. Two verbs, two behaviours, nothing to configure.
 
 **Keybinding output is silenced on purpose.** Stray output from a `run-shell`
-binding makes tmux force the active pane into view-mode, where every Ctrl-Shift
-chord stops working and the pane looks frozen. Messages go to the status line
+binding makes tmux force the active pane into view-mode, where every office key
+stops working and the pane looks frozen. Messages go to the status line
 instead.
 
 **It works with any agent CLI.** A session is just `OFFICE_SESSION_CMD`, so
@@ -510,20 +508,24 @@ On iTerm2 you can take that too:
 ~/agent-office/install.sh --theme      # or: OFFICE_ITERM_THEME=1 ~/agent-office/install.sh
 ```
 
-It merges `theme/iterm-office-theme.json` into the same `office` profile the
-chords already live in, so there is still one profile to make default and no
-second thing to switch between. Same palette as the tmux theme, the ANSI sixteen
+It writes `theme/iterm-office-theme.json` into an `office` dynamic profile,
+which is the *only* thing office puts in iTerm2 now that the key layer is gone.
+Same palette as the tmux theme, the ANSI sixteen
 desaturated toward it so `git diff` and test output stay readable without
 glowing, and transparency `0.15` over a blur radius of `12`.
 
 **It is appearance only.** No font, no shell, no key mappings: a font you do not
 have installed is worse than the one you chose, so the theme does not touch it.
-Anything the file does not name stays inherited from your own profile.
+Your own profile's key map is copied across untouched, and office adds nothing
+to it. Anything the file does not name stays inherited from your own profile.
 
 Re-run without `--theme` and the colours stay — a dynamic profile is just a
 file. To undo, delete the `office-keys.json` iTerm2 writes into
-`~/Library/Application Support/iTerm2/DynamicProfiles/` and re-run the
-installer, or make your old profile the default again. Two numbers are worth
+`~/Library/Application Support/iTerm2/DynamicProfiles/`, or make your old
+profile the default again. (That filename is history: it used to carry the
+Ctrl-Shift key map. A `--theme` install overwrites it in place, dropping those
+entries, and keeps the same profile GUID so it stays your default if you made
+it one.) Two numbers are worth
 knowing: `Transparency` and `Blur Radius` are single keys in that JSON, so if
 `0.15` is too much glass for your desktop, edit it rather than dropping the
 theme.
@@ -555,16 +557,17 @@ listed above.
 
 - appends one `source` line to your `.zshrc` and one to your `.tmux.conf`,
   after checking they are not already there
-- reads your iTerm2 preferences, in order to copy your existing key mappings
-  into the new profile so they survive (see above)
-- writes `office-keys.json` into iTerm2's DynamicProfiles folder
+- with `--theme` only: reads your iTerm2 preferences, in order to copy your
+  existing key mappings into the themed profile so they survive (see above),
+  and writes `office-keys.json` into iTerm2's DynamicProfiles folder — the same
+  file the retired chords used to live in, now overwritten without them
 
 **What can destroy something.** Every destructive action is a tmux operation,
 so the blast radius is panes and sessions, never files:
 
 | | |
 |---|---|
-| `Ctrl-Space w` | close a pane, after a y/n confirmation |
+| `Ctrl-Space q` | close a pane, after a y/n confirmation |
 | `Ctrl-Space X` | close the session, after a y/n confirmation |
 | `office off` | quits every office, lists what it will do and asks first |
 | `office clean` | you pick the panes, Esc closes nothing |
@@ -602,8 +605,9 @@ snippet, along with the constraints that are not obvious from reading the code.
 
 **Especially welcome:**
 
-- other terminals: the chord layer is two files in `terminals/` and `iterm/`,
-  and Ghostty, WezTerm, Kitty and Alacritty all deserve one
+- other terminals: the keys need no per-terminal layer any more, so what is
+  worth reporting is any terminal where `Shift+arrow` or `Ctrl-Space` does not
+  arrive as sent
 - other agents: `OFFICE_SESSION_CMD` should be all it takes, and if it is not
   for yours, that is a bug worth hearing about
 - Linux and WSL: the author develops on macOS, so those paths get the least
