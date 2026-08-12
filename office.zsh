@@ -343,8 +343,9 @@ _office_even_desks() { _office_even_column "$1" left }
 # you close a pane and the bar keeps saying it is open until the next tick. This
 # is pushed, from the one function that already runs after every change.
 #
-#   dim  the pane is open, there is nothing to tell you
-#   lit  the pane is closed, this is the one you cannot find
+#   lit  a pane that is CLOSED. The only thing on this bar worth your eye.
+#   dim  everything else: panes that are open, and the actions, which have no
+#        open-or-closed state to report at all.
 _OFFICE_BAR_OPEN='#[fg=#4e505a]'
 _OFFICE_BAR_SHUT='#[fg=#9a9ca6]'
 _OFFICE_BAR_DO='#[fg=#6a6c77]'
@@ -352,7 +353,7 @@ _OFFICE_BAR_SEP='#[fg=#3a3c44]'
 _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
-  out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_DO}n new${_OFFICE_BAR_SEP} · #[default]"
+  out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
   for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "EDITOR:editor:e" "CHAT:chat:c"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
@@ -361,7 +362,7 @@ _office_bar() {                        # <session>
   done
   # The actions that act on the pane you are in. No state to show, so they keep
   # the action tone: nothing here is ever "closed".
-  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_DO}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_DO}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_DO}z zoom#[default]"
+  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_OPEN}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
@@ -810,9 +811,17 @@ office() {
       # Restoring is bounded by the cap, not by what happens to be in the stash:
       # sessions parked one at a time weeks ago should not all come flooding
       # back because you pressed the group toggle.
+      local back=0
       while (( $(_office_desk_count "$s") < _OFFICE_MAX_DESKS )); do
         _office_unhide "$s" CLAUDE || break
+        (( back++ ))
       done
+      # Nothing visible and nothing parked: make one. This key must never do
+      # nothing. A silent no-op reads as a broken binding, and the honest answer
+      # to "show me my sessions" when there are none is to open one. Every other
+      # toggle already worked this way; this was the one that did not.
+      (( back )) || _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD; exec zsh" \
+                      "$(_office_root "$PWD")" CLAUDE
       _office_number "$s" ;;
     renumber)
       _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;

@@ -151,7 +151,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 |---|---|
 | `n` | new session |
 | `s` `e` `c` | toggle shell / editor / chat |
-| `a` | park every session at once, or bring them all back |
+| `a` | park every session, bring them all back, or open one if there are none |
 | `w` or `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
 | `z` | zoom this pane full screen, and back |
