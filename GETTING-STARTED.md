@@ -84,9 +84,14 @@ your first day.
 The keyboard version is **Ctrl+Shift and an arrow key**. Left, right, up, down,
 exactly where you would expect. Only that. Do not learn more yet.
 
-One thing worth knowing early: **Ctrl+Shift+Z** blows the current pane up to
-fill the whole window, and does it again to put it back. When the agent is
-writing a lot and the pane feels cramped, that is the key.
+One thing worth knowing early: **Ctrl+Space, then `z`** blows the current pane
+up to fill the whole window, and again to put it back. When the agent is writing
+a lot and the pane feels cramped, that is the key.
+
+That second one is the pattern for everything that is not movement: **press
+Ctrl+Space, let go, then press a letter.** It is two keystrokes rather than a
+three-finger chord, and unlike a chord it works in every terminal on every
+operating system with nothing to set up.
 
 ---
 
@@ -95,7 +100,7 @@ writing a lot and the pane feels cramped, that is the key.
 This is the part that catches everyone, including people who have used
 terminals for years.
 
-Press **Ctrl+Shift+E** to open the editor pane. You get a list of files with a
+Press **Ctrl+Space, then `e`** to open the editor pane. You get a list of files with a
 search box. Type a few letters to filter, arrow up and down, **Enter** to open
 one.
 
@@ -104,7 +109,7 @@ what the editor shows, listed the way a file tree reads. `cd src` in the shell,
 and the editor is showing `src`. The directory is printed above the list.
 
 To find something, just type part of its name or its folder: the list narrows as
-you type. `⌃⇧z` zooms the pane so the list fills the screen.
+you type. `Ctrl+Space z` zooms the pane so the list fills the screen.
 
 Now you are inside a file, and here is the bit nobody remembers:
 
@@ -120,7 +125,7 @@ Now you are inside a file, and here is the bit nobody remembers:
 you do not have to remember them. Look down.
 
 The path out is always the same: `Ctrl+Q` gets you back to the list, `Esc`
-leaves the list, `Ctrl+Shift+E` hides the pane.
+leaves the list, `Ctrl+Space e` hides the pane.
 
 > **If your editor looks nothing like this** and shows no help at the bottom,
 > you have vim, because your `$EDITOR` is set to it. If you did not choose that
@@ -131,17 +136,14 @@ leaves the list, `Ctrl+Shift+E` hides the pane.
 
 ## 6. Running more than one agent
 
-**Ctrl+Shift+N** adds a second agent, below the first. Up to four. They share
+**Ctrl+Space, then `n`** adds a second agent, below the first. Up to four. They share
 the left column evenly, and each one is a separate conversation working on a
 separate thing.
 
 This is the actual point of the tool. One agent refactoring while another writes
 tests, and you moving between them.
 
-**Ctrl+Shift+T** does the same but starts it on a task straight away: it asks
-what you want, and opens an agent already working on it.
-
-When one is finished, **Ctrl+Shift+W** closes that pane. It asks first.
+When one is finished, **Ctrl+Space, then `w`** closes that pane. It asks first.
 
 ---
 
@@ -173,20 +175,24 @@ Not for day one. Come back to this.
 | | |
 |---|---|
 | `⌃⇧←↑↓→` | move between panes |
-| `⌃⇧n` | new agent session |
-| `⌃⇧t` | new agent session, on a task you type |
-| `⌃⇧s` `⌃⇧e` `⌃⇧c` | show or hide shell / editor / chat |
-| `⌃⇧a` | hide every agent at once, or bring them all back |
-| `⌃⇧w` | close this pane for good |
-| `⌃⇧x` | park this pane: hidden, still running |
-| `⌃⇧z` | zoom this pane full screen, and back |
+
+And `Ctrl+Space`, then:
+
+| | |
+|---|---|
+| `n` | new agent session |
+| `s` `e` `c` | show or hide shell / editor / chat |
+| `a` | hide every agent at once, or bring them all back |
+| `w` | close this pane for good |
+| `x` | park this pane: hidden, still running |
+| `z` | zoom this pane full screen, and back |
+
 
 Each pane's top border shows the key that acts on it, and the bar along the
 bottom lists the rest. **Whatever is bright on that bar is closed.**
 
-If the Ctrl+Shift keys do nothing, your terminal is not sending them. Use
-**Ctrl+Space, then the same letter** instead. That always works. See the README
-for making the chords work in your terminal.
+If Ctrl+Shift+arrow does nothing, your terminal is not sending it. Use
+**Ctrl+Space then an arrow** instead, or `h j k l`. Those always work.
 
 ---
 
@@ -213,10 +219,10 @@ which is the real reason to close ones you have finished with.
 1. `office on`
 2. Ask the agent in pane 1 something small about your project. "What does this
    repo do?" is a fine start.
-3. When it changes a file, look at it: `Ctrl+Shift+E`, find the file, read it,
+3. When it changes a file, look at it: `Ctrl+Space e`, find the file, read it,
    `Ctrl+Q`, `Esc`.
 4. Run your tests in the shell pane.
-5. `Ctrl+Shift+N`, and give the second agent something unrelated.
+5. `Ctrl+Space n`, and give the second agent something unrelated.
 
 That is the loop. Everything else in the [README](README.md) is detail you can
 pick up when you want it.

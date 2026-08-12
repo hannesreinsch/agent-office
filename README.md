@@ -9,13 +9,13 @@ office on
 
 ```
 ┌─────────────────────────────┬──────────────┐
-│ 1 CLAUDE                    │ 4 SHELL      │  ⌃⇧s
+│ 1 CLAUDE                    │ 4 SHELL      │  ^Space s
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2      ⌃⇧n adds    │ 5 EDITOR     │  ⌃⇧e
+│ 2 CLAUDE 2   ^Space n adds  │ 5 EDITOR     │  ^Space e
 │                 one more    │              │
 ├─────────────────────────────┼──────────────┤
-│ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ⌃⇧c
+│ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ^Space c
 │                             │              │
 └─────────────────────────────┴──────────────┘
         your agents               you, working
@@ -125,20 +125,28 @@ you were coming back to is worse than a full disk.
 
 ## The keys
 
-| chord | |
+| | |
 |---|---|
 | `⌃⇧←↑↓→` | move between panes |
-| `⌃⇧n` | new session, appended to the left column |
-| `⌃⇧t` | **type a task, get a session already working on it** |
-| `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle shell / editor / chat |
-| `⌃⇧a` | park every session at once, or bring them all back |
-| `⌃⇧w` | close this pane, and get the memory back |
-| `⌃⇧x` | park this pane, still running, same key brings it back |
-| `⌃⇧z` | zoom this pane fullscreen and back |
 
-Every one also works as `Ctrl-Space` then the same letter, so nothing depends
-on the chord layer. The mouse works too: click a pane to focus it, drag a
-border to resize, and it stays that way until you run `office off`.
+Everything else is **`Ctrl-Space`, then one letter**:
+
+| | |
+|---|---|
+| `n` | new session |
+| `s` `e` `c` | toggle shell / editor / chat |
+| `a` | park every session at once, or bring them all back |
+| `w` | close this pane |
+| `x` | park this pane. Still running, `office show` brings it back |
+| `z` | zoom this pane full screen, and back |
+| `h j k l` or arrows | move, if your terminal will not send the chord |
+
+
+Two rules, and the second covers everything. Movement is a chord because it is
+what you do most and arrows carry their modifier natively; every action is the
+prefix, which is the tmux convention and needs **no terminal configuration on
+any platform**. The mouse works too: click a pane to focus it, drag a border to
+resize, and it stays that way until `office off`.
 
 ### The keys are on the status bar
 
@@ -147,7 +155,7 @@ the pane is closed and the border went with it. So the bar carries the whole
 set:
 
 ```
-+ new ⌃⇧n   │  sessions ⌃⇧a · shell ⌃⇧s · editor ⌃⇧e · chat ⌃⇧c
+^Space then  │  n new  sessions a · shell s · editor e · chat c
                ^^^^^^^^ dim = open            lit = closed ^^^^
 ```
 
@@ -168,35 +176,28 @@ set -g status-left-length 70
 ```
 
 
-### Why Ctrl-Shift needs iTerm2 for the letters
+### The one chord, and why it is only arrows
 
-A terminal cannot encode Ctrl+Shift for a letter. `Ctrl+Z` and `Ctrl+Shift+Z`
-arrive as the same byte, `0x1A`, because Shift is simply not part of the wire
-format for control characters. Arrows are the exception: they travel as
-`CSI 1;6 A-D`, with the modifier as a number.
+`Ctrl-Shift+arrow` travels as `CSI 1;6 A-D`, a real escape sequence that
+**Windows Terminal sends by default**. iTerm2 does not, which is the only reason
+`iterm/office-keys.json` exists: four entries, written by the installer.
 
-So the letter chords are made real one level lower: an iTerm2 dynamic profile
-rewrites each one to `ESC`+letter, and tmux reads that as `M-<letter>`. That is
-all `iterm/office-keys.json` does. Without iTerm2 you lose nothing except the
-one-key form, because the `Ctrl-Space` prefix covers every command.
+Ctrl-Shift on a *letter* cannot be sent at all. `Ctrl+Z` and `Ctrl+Shift+Z` are
+the same byte, `0x1A`, because Shift is not part of the wire format for control
+characters. That is why the actions live on the prefix instead of behind a
+per-terminal translation layer you have to install and maintain.
 
-Two things the installer handles that are easy to get wrong by hand:
+If the arrows do nothing in your terminal, `Ctrl-Space` then an arrow (or
+`h j k l`) does the same thing, everywhere, with nothing installed.
 
-- A dynamic profile **replaces** the parent profile's keyboard map instead of
-  merging into it. Your existing entries (Natural Text Editing's option-arrow
-  word jump, option-delete, cmd-arrow line ends) vanish silently. The installer
-  copies them over first.
-- iTerm watches the DynamicProfiles **folder**. A symlink pointing out of it
-  will not trigger a reload when you edit the target, so the file is written
-  into the folder directly.
 
 ## Park versus close
 
-`⌃⇧x` parks a pane: it is moved to a hidden tmux session and keeps running.
+`Ctrl-Space x` parks a pane: it is moved to a hidden tmux session and keeps running.
 Its own toggle brings it back, in its proper place, or `office show` picks from
 everything parked.
 
-`⌃⇧w` closes a pane for good. Parking is not free, a parked agent session
+`Ctrl-Space w` closes a pane for good. Parking is not free, a parked agent session
 still holds its 400 to 700MB, and `office doctor` lists parked panes alongside
 live ones for exactly that reason.
 
@@ -235,9 +236,10 @@ OFFICE_SESSION_CMD="my-agent"        # whatever you type to start it
 OFFICE_SESSION_LABEL="MY AGENT"      # what its panes are called
 ```
 
-That is the whole integration. `⌃⇧n` opens one. `⌃⇧t` opens one already working
+That is the whole integration. `Ctrl-Space n` opens one. `office task <what>`
+opens one already working
 on a task, by running `$OFFICE_SESSION_CMD "<your task>"`, so that one needs an
-agent that takes a prompt as its first argument. If yours does not, `⌃⇧n` still
+agent that takes a prompt as its first argument. If yours does not, `Ctrl-Space n` still
 works and you type the task into the pane.
 
 **The chat pane** is separate, and it is for the conversational side of your
@@ -308,15 +310,15 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
-| changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
+| changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space w`, reopen with `Ctrl-Space c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
-| need an image in a task | `⌃⇧n`, then paste into your agent's own prompt |
+| need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
 | a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. That resets the layout completely |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
-*runs*, close it with `⌃⇧w` and reopen it rather than toggling it off and on.
+*runs*, close it with `Ctrl-Space w` and reopen it rather than toggling it off and on.
 
 **If the chords do nothing:** iTerm2 > Settings > Profiles > "office" > Other
 Actions > Set as Default, then open a new window. Until then, `Ctrl-Space` and
@@ -329,8 +331,13 @@ the layout tree, which moving a pane leaves in an order your eye disagrees with
 (you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
 they always read down the left column and then down the right strip.
 
+**Pane borders stay quiet.** A border shows the pane's number, what it is, the
+key that acts on it, and what it is currently doing, but only when that last one
+is worth saying: a plain shell reports the machine's hostname as its title, so
+that gets suppressed rather than repeated on every pane.
+
 **Each pane's border shows the key that acts on it**: the chord that toggles a
-glance pane, `⌃⇧w` on a session, since closing is what you want from those. 
+glance pane, `Ctrl-Space w` on a session, since closing is what you want there. 
 **Nothing can trap you in a mode.** tmux drops a pane into view-mode on its own,
 and its key table does not inherit the root one, so every chord goes dead and
 the pane looks frozen (often with a red `returned 1` line). Every office
@@ -433,8 +440,8 @@ so the blast radius is panes and sessions, never files:
 
 | | |
 |---|---|
-| `⌃⇧w`, `prefix x` | close a pane, after a y/n confirmation |
-| `prefix X` | close the session, after a y/n confirmation |
+| `Ctrl-Space w` | close a pane, after a y/n confirmation |
+| `Ctrl-Space X` | close the session, after a y/n confirmation |
 | `office off` | quits every office, lists what it will do and asks first |
 | `office clean` | you pick the panes, Esc closes nothing |
 | `office clean --idle` | **no confirmation, by design.** It is the unattended form |

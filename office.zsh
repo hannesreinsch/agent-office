@@ -346,8 +346,8 @@ _OFFICE_BAR_SEP='#[fg=#3a3c44]'
 _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
-  out="${_OFFICE_BAR_DO}+ new ⌃⇧n#[default]   ${_OFFICE_BAR_SEP}│#[default]  "
-  for pair in "CLAUDE:sessions:⌃⇧a" "SHELL:shell:⌃⇧s" "EDITOR:editor:⌃⇧e" "CHAT:chat:⌃⇧c"; do
+  out="${_OFFICE_BAR_DO}^Space then#[default]  ${_OFFICE_BAR_SEP}│#[default]  ${_OFFICE_BAR_DO}n new#[default]  "
+  for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "EDITOR:editor:e" "CHAT:chat:c"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
     out+="${sep}${tone}${name} ${key}#[default]"
@@ -416,7 +416,7 @@ _office_reap() {
 #   a session      ⌃⇧w, close. There is no per-session restore, because there
 #                  is no fixed slot to restore into, so closing is the honest
 #                  verb. (⌃⇧x still parks one, and ⌃⇧a parks the whole column.)
-typeset -gA _OFFICE_KEYS=(SHELL '⌃⇧s' EDITOR '⌃⇧e' CHAT '⌃⇧c' CLAUDE '⌃⇧w')
+typeset -gA _OFFICE_KEYS=(SHELL '^Space s' EDITOR '^Space e' CHAT '^Space c' CLAUDE '^Space w')
 
 _office_label() {                      # <pane> <label> [kind]
   # '#' is stripped: the label is rendered through tmux's format engine, where
@@ -690,37 +690,21 @@ _office_help() {
   print -P "  ${d}CHAT starts closed: set OFFICE_CHAT_CMD to your agent's chat command${r}"
   print -P "  ${d}first, or it is just another shell. Then Ctrl-Shift-c opens it.\n${r}"
 
-  print -P "${g}THE KEYS${r} ${d}— Ctrl-Shift does everything. No prefix, no chords to learn.${r}"
+  print -P "${g}THE KEYS${r} ${d}— two rules, and the second one covers everything${r}"
   print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
-  print -P "  ${g}Ctrl-Shift-n${r}       NEW session               ${d}left column, max 4${r}"
-  print -P "  ${g}Ctrl-Shift-c${r}       toggle the CHAT pane"
-  print -P "  ${g}Ctrl-Shift-s${r}       toggle the SHELL pane"
-  print -P "  ${g}Ctrl-Shift-e${r}       toggle the EDITOR pane"
-  print -P "  ${g}Ctrl-Shift-a${r}       park every session at once, or bring them all back"
-  print -P "  ${g}Ctrl-Shift-w${r}       CLOSE this pane           ${d}gone, and the RAM back${r}"
-  print -P "  ${g}Ctrl-Shift-x${r}       park this pane            ${d}it keeps running${r}"
-  print -P "  ${d}Each border shows the key you usually want there: a glance pane shows${r}"
-  print -P "  ${d}its toggle, a session shows ⌃⇧w, because a session has no slot of its${r}"
-  print -P "  ${d}own to be restored into. Both keys work on any pane.${r}"
-  print -P "  ${g}Ctrl-Shift-z${r}       zoom this pane fullscreen / back"
-  print -P "  ${d}w closes, x parks. A parked pane comes back with its own toggle, or${r}"
-  print -P "  ${d}with 'office show'. Park is not free — it still holds its memory.${r}"
-  print -P "  ${d}Ctrl-Shift on the LETTERS needs the 'office' iTerm profile — that is${r}"
-  print -P "  ${d}where the chord is translated. Everything below works without it.\n${r}"
-
-  print -P "${g}THE SAME THINGS, THE TWO-KEY WAY${r} ${d}— prefix is Ctrl-Space, then a letter${r}"
-  print -P "  ${g}s e c${r}       shell · editor · chat ${d}(same toggles)${r}"
-  print -P "  ${g}n${r}           a new session"
-  print -P "  ${g}Z${r}           collapse this pane   ${g}z${r}  zoom it"
-  print -P "  ${g}h j k l${r}     move left · down · up · right"
-  print -P "  ${g}H J K L${r}     resize this pane by 5, same directions"
-  print -P "  ${g}m${r}           mouse reporting on/off ${d}(off = a plain I-beam pointer)${r}"
-  print -P "  ${g}x${r}           close this pane      ${g}X${r}  close the whole office"
-  print -P "  ${g}|${r} ${g}-${r}         split right / split down, raw"
-  print -P "  ${g}C${r}           a new window         ${g}S${r}  jump to another office"
-  print -P "  ${g}Enter${r}       scrollback / copy mode ${d}— v selects, y copies, q leaves${r}"
-  print -P "  ${g}r${r}           reload the tmux config"
-  print -P "  ${d}Or just click a pane with the mouse.\n${r}"
+  print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
+  print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
+  print -P "  ${g}s${r}    toggle the SHELL         ${g}e${r}  toggle the EDITOR"
+  print -P "  ${g}c${r}    toggle the CHAT          ${g}a${r}  park/restore ALL sessions"
+  print -P "  ${g}w${r}    CLOSE this pane          ${g}x${r}  park it, still running"
+  print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"
+  print -P "  ${g}h j k l${r} or arrows              move, if the chord will not reach you"
+  print -P "  ${g}|${r} ${g}-${r}  split raw               ${g}X${r}  close the whole office"
+  print -P "  ${g}Enter${r}  scrollback / copy mode  ${g}r${r}  reload the tmux config"
+  print -P "  ${d}Only the arrows are a chord, because they carry their modifier natively.${r}"
+  print -P "  ${d}Everything else is the prefix: no terminal setup, same on every OS.${r}"
+  print -P "  ${d}Each border shows the key for that pane. Or just click one with the mouse.
+${r}"
 
   print -P "${g}RUNNING SEVERAL AGENTS${r} ${d}— the whole point of this setup${r}"
   print -P "  ${g}office new${r}     One more session, in its OWN git worktree, as a new pane."
