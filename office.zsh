@@ -40,7 +40,13 @@ OFFICE_WORKTREE_DIR="${OFFICE_WORKTREE_DIR:-.claude/worktrees}"
 # does not wrap every sentence, narrow enough that the agents keep the room.
 OFFICE_STRIP_WIDTH="${OFFICE_STRIP_WIDTH:-32}"
 OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
-OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-exec $SHELL}"
+_OFFICE_CHAT_UNSET="exec $SHELL"
+OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
+# Open the chat pane at startup when there is actually a chat to open, which is
+# the moment you point OFFICE_CHAT_CMD at your own agent. Left at its default it
+# would just be a fourth shell, so it stays closed. OFFICE_CHAT_OPEN=1 or 0
+# decides it outright.
+[[ -n $OFFICE_CHAT_OPEN ]] || { [[ $OFFICE_CHAT_CMD == $_OFFICE_CHAT_UNSET ]] && OFFICE_CHAT_OPEN=0 || OFFICE_CHAT_OPEN=1 }
 
 # ---------------------------------------------------------------- internals --
 _office_sessname() { basename "$1" | tr ' .:' '___'; }
@@ -514,7 +520,7 @@ _office_open() {                       # <repo-path>
   local dir=$1 s
   s=$(_office_sessname "$dir")
   if ! tmux has-session -t "=$s" 2>/dev/null; then
-    local main editor strip n prev
+    local main editor strip n prev chat
     main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
     _office_label "$main" "$OFFICE_SESSION_LABEL" CLAUDE
     # the right strip first, at OFFICE_STRIP_WIDTH: these are glance surfaces, and
@@ -522,10 +528,14 @@ _office_open() {                       # <repo-path>
     strip=$(tmux split-window -h -l ${OFFICE_STRIP_WIDTH}% -t "$main" -c "$dir" -P -F '#{pane_id}')
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
     # The editor comes up too: everyone needs a file open sooner or later.
-    # CHAT does NOT, because a chat pane is only worth the space once you have
-    # pointed OFFICE_CHAT_CMD at your own agent. Open it with Ctrl-Shift-c.
     editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' 'zsh -ic "while _office_pick_file; do :; done; exec zsh"')
     _office_label "$editor" "EDITOR" EDITOR
+    # ...and the chat, but only once you have given it something to run.
+    if (( OFFICE_CHAT_OPEN )); then
+      local chat
+      chat=$(tmux split-window -v -t "$editor" -c "$dir" -P -F '#{pane_id}' "$OFFICE_CHAT_CMD")
+      _office_label "$chat" "$OFFICE_CHAT_LABEL" CHAT
+    fi
     # the rest of the sessions, stacked down the left. Split the one just made,
     # not the tallest — otherwise desk 3 lands between 1 and 2 and the labels lie.
     local prev=$main

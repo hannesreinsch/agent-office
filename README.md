@@ -127,7 +127,7 @@ you were coming back to is worse than a full disk.
 
 | | |
 |---|---|
-| `⌃⇧←↑↓→` | move between panes |
+| `⇧←↑↓→` | move between panes |
 
 Everything else is **`Ctrl-Space`, then one letter**:
 
@@ -178,17 +178,19 @@ set -g status-left-length 70
 
 ### The one chord, and why it is only arrows
 
-`Ctrl-Shift+arrow` travels as `CSI 1;6 A-D`, a real escape sequence that
-**Windows Terminal sends by default**. iTerm2 does not, which is the only reason
-`iterm/office-keys.json` exists: four entries, written by the installer.
+`Shift+arrow` is `CSI 1;2 A-D`, which **every terminal already sends** on every
+operating system. Nothing to install, and nothing else claims it: not macOS
+Mission Control (that is Ctrl+arrow), not word-jump (Option+arrow).
 
-Ctrl-Shift on a *letter* cannot be sent at all. `Ctrl+Z` and `Ctrl+Shift+Z` are
-the same byte, `0x1A`, because Shift is not part of the wire format for control
-characters. That is why the actions live on the prefix instead of behind a
-per-terminal translation layer you have to install and maintain.
+The one thing Shift+arrow normally does is select text, and that only matters in
+the editor pane, so there it passes straight through. One line to remember: **in
+the editor Shift+arrow selects, everywhere else it moves.** `Ctrl+Space` and an
+arrow moves in the editor too.
 
-If the arrows do nothing in your terminal, `Ctrl-Space` then an arrow (or
-`h j k l`) does the same thing, everywhere, with nothing installed.
+`Ctrl+Shift+arrow` still works if your fingers already know it. And Ctrl+Shift
+on a *letter* cannot be sent by a terminal at all: `Ctrl+Z` and `Ctrl+Shift+Z`
+are the same byte, `0x1A`. That is why every action lives on the prefix instead
+of behind a per-terminal translation layer.
 
 
 ## Park versus close
@@ -281,6 +283,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
+| `OFFICE_CHAT_OPEN` | on once `OFFICE_CHAT_CMD` is set | whether the chat pane opens at startup |
 | `OFFICE_ALWAYS_ON_CHECK` | `false` | exits 0 when your stack is up |
 | `OFFICE_ALWAYS_ON_START` | *(empty)* | run by `office on` |
 | `OFFICE_ALWAYS_ON_STOP` | *(empty)* | run by `office off` |
