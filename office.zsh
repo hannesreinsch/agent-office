@@ -18,6 +18,7 @@
 #   office agents     toggle the agent view                          (^Sa)
 #   office edit       toggle the editor pane                         (^Se)
 #   office hide/show  collapse the pane you are on / bring one back  (^Sx)
+#   office layout     rebuild the two columns if they ever look wrong
 #   office fixagents  restart the agent view when it stops responding
 #
 #   office doctor     what's running and what it costs in RAM (read-only)
@@ -105,6 +106,90 @@ _office_strip_slot() {                 # <session> <kind>
 # give every pane in a column the same height. tmux has no column-scoped layout,
 # so the arithmetic is ours. `left` is the desks, `right` is the glance strip;
 # a three-row shell is as useless as a three-row Claude.
+# Where a pane of <kind> belongs: a target pane plus split-window/join-pane flags.
+#
+# Both columns can vanish. Park every Claude session and the left column is
+# gone; park the agent view, shell and editor and the strip is. tmux collapses a
+# two-column layout the moment one side empties, and from then on "leftmost
+# pane" and "rightmost pane" are the same pane, so everything coming back lands
+# in one tall stack. This is what stops that: when a column is missing, the
+# first pane that needs it rebuilds it.
+# Put the two columns back, from any mess at all.
+#
+# tmux layouts are trees, and only a window with ONE pane can be split into two
+# root-level columns. Splitting a pane that already sits inside a stack nests
+# instead, which is how a rebuilt column ends up half height. So the honest
+# repair is to break every pane out, keep one, and re-join them in the order the
+# office wants: sessions down the left, glance panes down the right.
+#
+# Only runs when a column has actually gone missing, because it makes every pane
+# redraw. `office layout` is the same thing on demand.
+# Is the window actually shaped like an office? Every session sharing one left
+# edge, every glance pane sharing another, and the sessions on the left. Counting
+# distinct columns is not enough: a nested split also produces two of them, and
+# that is exactly the broken state this has to catch.
+_office_layout_ok() {                  # <session>
+  local line kind left
+  local -a dl sl
+  for line in ${(f)"$(tmux list-panes -t "=$1" -F '#{pane_left}|#{@office_kind}' 2>/dev/null)"}; do
+    left=${${(s:|:)line}[1]}; kind=${${(s:|:)line}[2]}
+    if [[ $(_office_rank "$kind") == 9 ]]; then dl+=($left); else sl+=($left); fi
+  done
+  (( $#dl && $#sl )) || return 0       # one-sided is a legitimate shape
+  dl=(${(u)dl}); sl=(${(u)sl})
+  (( $#dl == 1 && $#sl == 1 )) && (( dl[1] < sl[1] ))
+}
+
+_office_relayout() {                   # <session>
+  local s=$1 line kind id keep w prev
+  local -a desks strip all
+  for line in ${(f)"$(tmux list-panes -t "=$s" -F '#{pane_top}|#{pane_id}|#{@office_kind}' 2>/dev/null | sort -t'|' -k1,1n)"}; do
+    id=${${(s:|:)line}[2]}; kind=${${(s:|:)line}[3]}
+    if [[ $(_office_rank "$kind") == 9 ]]; then desks+=($id); else strip+=("$(_office_rank "$kind")|$id"); fi
+  done
+  strip=(${(f)"$(printf '%s\n' $strip | sort -t'|' -k1,1n | cut -d'|' -f2)"})
+  (( $#desks && $#strip )) || return 0          # one-sided is not a two-column layout
+  _office_stash_ensure
+  keep=${desks[1]}
+  all=(${desks[2,-1]} $strip)
+  for id in $all; do tmux break-pane -d -s "$id" -t "=$_OFFICE_STASH:" -n "relayout-${id#\%}" 2>/dev/null; done
+  # one pane left, so this split is the ROOT one: it is what makes two columns
+  w=$(tmux list-windows -t "=$s" -F '#{window_width}' 2>/dev/null | head -1)
+  tmux join-pane -h -l $(( w * 28 / 100 )) -s "${strip[1]}" -t "$keep" 2>/dev/null
+  prev=$keep
+  for id in ${desks[2,-1]}; do tmux join-pane -v -s "$id" -t "$prev" 2>/dev/null && prev=$id; done
+  prev=${strip[1]}
+  for id in ${strip[2,-1]}; do tmux join-pane -v -s "$id" -t "$prev" 2>/dev/null && prev=$id; done
+  _office_even_column "$s" left; _office_even_column "$s" right; _office_number "$s"
+}
+
+_office_place() {                      # <session> <kind> -> "<pane> <flags...>"
+  local s=$1 kind=$2 cols l has_strip=0
+  local -a sl
+  cols=$(tmux list-panes -t "=$s" -F '#{pane_left}' 2>/dev/null | sort -un | wc -l | tr -d ' ')
+  if (( cols >= 2 )); then                        # both columns exist: place normally
+    if [[ $(_office_rank "$kind") == 9 ]]; then
+      print -r -- "$(_office_desk_pane "$s") -v"
+    else
+      sl=($(_office_strip_slot "$s" "$kind")); print -r -- "${sl[1]} -v ${sl[2]}"
+    fi
+    return
+  fi
+  for l in ${(f)"$(tmux list-panes -t "=$s" -F '#{@office_kind}' 2>/dev/null)"}; do
+    [[ $(_office_rank "$l") == 9 ]] || has_strip=1
+  done
+  if (( has_strip )) && [[ $(_office_rank "$kind") != 9 ]]; then
+    sl=($(_office_strip_slot "$s" "$kind")); print -r -- "${sl[1]} -v ${sl[2]}"
+  elif (( has_strip )) || [[ $(_office_rank "$kind") == 9 ]]; then
+    # the column this pane belongs in does not exist. Land it anywhere: the
+    # caller checks the shape afterwards and rebuilds, which is the only way to
+    # get a root-level split back.
+    print -r -- "$(_office_desk_pane "$s") -v"
+  else
+    print -r -- "$(_office_desk_pane "$s") -h -l 28%"
+  fi
+}
+
 _office_even_column() {                # <session> [left|right]
   local s=$1 side=${2:-left} h n target p sortflag
   local -a panes
@@ -187,12 +272,18 @@ _office_layout_restore() {             # <session>
 #
 # @office_kind is the STABLE identity (CHAT, SHELL, EDITOR, CLAUDE, AGENT) that
 # the toggles match on — the visible label carries a repo and a branch and moves.
+# The chord that toggles each pane, shown on its own border. A pane you have to
+# look up the key for is a pane you will not use. Claude sessions get no key
+# here on purpose: their border already carries what they are working on.
+typeset -gA _OFFICE_KEYS=(AGENT '⌃⇧a' SHELL '⌃⇧s' EDITOR '⌃⇧e' CHAT '⌃⇧c')
+
 _office_label() {                      # <pane> <label> [kind]
   # '#' is stripped: the label is rendered through tmux's format engine, where
   # #(...) runs a shell command. A branch name or an `office task` description
   # containing one would otherwise be executed every time the border redraws.
   tmux set -p -t "$1" @office_label "${2//\#/}" 2>/dev/null
   tmux set -p -t "$1" @office_kind "${3:-$2}" 2>/dev/null
+  tmux set -p -t "$1" @office_key "${_OFFICE_KEYS[${3:-$2}]}" 2>/dev/null
 }
 
 # say something to the operator. A keybinding runs with no terminal attached, so
@@ -244,13 +335,12 @@ _office_unhide() {                     # <session> <kind>
       | awk -v n="${(L)2}" '$2==n || index($2, n "-")==1 {print $1; exit}')
   [[ -n $w ]] || return 1
   p=$(tmux list-panes -t "$w" -F '#{pane_id}' 2>/dev/null | head -1)
-  if [[ $(_office_rank "$2") == 9 ]]; then     # a desk: back to the left column
-    tmux join-pane -v -s "$p" -t "$(_office_desk_pane "$1")" && _office_even_desks "$1"
-    _office_number "$1"
-  else
-    slot=($(_office_strip_slot "$1" "$2"))
-    tmux join-pane -v ${slot[2]} -s "$p" -t "${slot[1]}" && _office_even_column "$1" right
-  fi
+  slot=($(_office_place "$1" "$2"))
+  tmux join-pane ${slot[2,-1]} -s "$p" -t "${slot[1]}" || return 1
+  # a column that was just rebuilt holds one pane; evening both is cheap and
+  # always right, and the numbers follow the geometry afterwards.
+  _office_layout_ok "$1" || _office_relayout "$1"
+  _office_even_column "$1" left; _office_even_column "$1" right
   _office_number "$1"
 }
 
@@ -354,17 +444,15 @@ _office_add_pane() {                   # <label> <command> [dir] [kind]
   s=$(_office_sessname "$(_office_root "$PWD")")
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
-  if [[ $(_office_rank "$kind") == 9 ]]; then
-    (( $(_office_desk_count "$s") < _OFFICE_MAX_DESKS )) \
-      || { _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Shift-w"; return 0 }
-    slot=("$(_office_desk_pane "$s")")
-  else
-    slot=($(_office_strip_slot "$s" "$kind"))
+  if [[ $(_office_rank "$kind") == 9 ]] && (( $(_office_desk_count "$s") >= _OFFICE_MAX_DESKS )); then
+    _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Shift-w"
+    return 0
   fi
-  newp=$(tmux split-window -v ${slot[2]} -t "${slot[1]}" -c "$dir" -P -F '#{pane_id}' "$2") || return 1
+  slot=($(_office_place "$s" "$kind"))
+  newp=$(tmux split-window ${slot[2,-1]} -t "${slot[1]}" -c "$dir" -P -F '#{pane_id}' "$2") || return 1
   _office_label "$newp" "$1" "$kind"
-  if [[ $(_office_rank "$kind") == 9 ]]; then _office_even_desks "$s"
-  else _office_even_column "$s" right; fi
+  _office_layout_ok "$s" || _office_relayout "$s"
+  _office_even_column "$s" left; _office_even_column "$s" right
   _office_number "$s"
   # not inside tmux and not on a terminal (a run-shell keybinding) — nothing to attach to
   [[ -n $TMUX || ! -t 1 ]] || _office_attach "$s"
@@ -569,9 +657,9 @@ office() {
     task|do|go)
       shift
       (( $# )) || { print -u2 "usage: office task <what you want done>"; return 1 }
-      _office_add_pane "CLAUDE · ${*[1,40]}" "claude ${(q)*}; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
+      _office_add_pane "CLAUDE · $*" "claude ${(q)*}; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
     # the three right-strip panes are TOGGLES: same word closes what it opened.
-    chat|talk|huddle)
+    chat|talk)
       _office_toggle CHAT   "$OFFICE_CHAT_LABEL" "$OFFICE_CHAT_CMD" ;;
     shell|sh|term)
       _office_toggle SHELL  "$(_office_strip_title "$(_office_root "$PWD")")" 'exec zsh' ;;
@@ -579,6 +667,8 @@ office() {
       # loop the picker: quitting a file (Ctrl-Q) drops you back at the file
       # list, not at a shell. Esc at the list is how you actually leave.
       _office_toggle EDITOR "EDITOR" 'zsh -ic "while edit; do :; done; exec zsh"' ;;
+    layout|fix|repair)
+      _office_relayout "$(_office_sessname "$(_office_root "$PWD")")"; print "layout rebuilt." ;;
     agent|agents|agentview)
       _office_toggle AGENT "AGENT VIEW" 'claude agents; exec zsh' ;;
     # Claude Code can move a conversation to the background, which leaves the

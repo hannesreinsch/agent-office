@@ -211,6 +211,8 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
 | need an image in a task | `⌃⇧n`, then paste into Claude's own prompt |
+| the columns look scrambled | `office layout` |
+| a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. Only the panes are lost |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
@@ -226,6 +228,23 @@ the same letter does everything the chords do.
 the layout tree, which moving a pane leaves in an order your eye disagrees with
 (you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
 they always read down the left column and then down the right strip.
+
+**Each pane's border shows the key that toggles it.** A pane whose key you have
+to look up is a pane you will not use. Claude sessions show what they are
+working on instead.
+
+**Nothing can trap you in a mode.** tmux drops a pane into view-mode on its own,
+and its key table does not inherit the root one, so every chord goes dead and
+the pane looks frozen (often with a red `returned 1` line). Every office
+keybinding exits non-zero-proof now, and the movement, zoom, close and park
+chords all cancel the mode first, so there is always a way out.
+
+**A missing column rebuilds itself.** Park every session, or every glance pane,
+and tmux collapses the two-column layout: from then on the leftmost and
+rightmost pane are the same one, and everything coming back lands in a single
+tall stack. Only a window with one pane can be split into two root-level
+columns, so when the shape is wrong `office` breaks the panes out, keeps one,
+and re-joins them in order. `office layout` does it on demand.
 
 **Pane labels are derived, not trusted.** Claude Code can move a conversation
 to the background and swap which pane displays the agent list. A label pinned
