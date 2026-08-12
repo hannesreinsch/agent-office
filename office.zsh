@@ -360,9 +360,10 @@ _office_bar() {                        # <session>
     out+="${sep}${tone}${name} ${key}#[default]"
     sep="${_OFFICE_BAR_SEP} · #[default]"
   done
-  # The actions that act on the pane you are in. No state to show, so they keep
-  # the action tone: nothing here is ever "closed".
-  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_OPEN}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
+  # One list, one separator. There used to be a second divider here marking
+  # "toggles" from "actions", which is a distinction nothing else on the bar
+  # shows: brightness means closed, and that is all it means.
+  out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
