@@ -2,7 +2,7 @@
 #
 # https://github.com/hannesreinsch/agent-office
 #
-#   office up         walk in — open your office and start the day (= office on)
+#   office on         walk in — open your office and start the day
 #   office break      step out — detach; everything inside keeps running
 #   office off        go home — quit every office and stop the always-on stack
 #

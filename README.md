@@ -4,7 +4,7 @@
 command.**
 
 ```sh
-office up
+office on
 ```
 
 ```
@@ -24,7 +24,7 @@ office up
 Agents own the wide left column, stacked and kept at equal height. Everything
 you only glance at shares the narrow strip on the right, and each of those four
 panes opens and closes with one chord. Closing the window kills nothing:
-`office up` puts you back exactly where you were, panes, layout and all.
+`office on` puts you back exactly where you were, panes, layout and all.
 
 ## Why
 
@@ -41,7 +41,7 @@ a tmux config. There is no daemon, no plugin manager, and no config file.
 ```sh
 git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
 ~/code/agent-office/install.sh
-exec zsh && office up
+exec zsh && office on
 ```
 
 The installer appends one line to your `.zshrc`, one line to your `.tmux.conf`,
@@ -64,7 +64,7 @@ Ctrl-Shift chords.
 
 ## Three commands
 
-`office up`, `office break`, `office off`. Everything else has a key.
+`office on`, `office break`, `office off`. Everything else has a key.
 
 Nothing accumulates behind your back, so there is no housekeeping to remember.
 Walking in reaps anything you parked and never came back to (12 hours by
@@ -148,7 +148,7 @@ live ones for exactly that reason.
 
 | | |
 |---|---|
-| `office up` | walk in: open the office, start your always-on stack |
+| `office on` | walk in: open the office, start your always-on stack |
 | `office break` | step out: detach, everything keeps running |
 | `office off` | go home: quit every office, stop the stack, asks first |
 | `office <name>` | open another repo by fuzzy name |
@@ -175,7 +175,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_DEFAULT` | *(empty)* | repo that bare `office on` opens |
 | `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
 | `OFFICE_DEFAULT_DESKS` | `1` | Claude sessions opened at startup |
-| `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office up` |
+| `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
 | `OFFICE_ALWAYS_ON_CHECK` | `false` | exits 0 when your stack is up |
@@ -211,7 +211,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
 | need an image in a task | `⌃⇧n`, then paste into Claude's own prompt |
-| everything is wedged | `office off`, then `office up`. Only the panes are lost |
+| everything is wedged | `office off`, then `office on`. Only the panes are lost |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
 *runs*, close it with `⌃⇧w` and reopen it rather than toggling it off and on.
