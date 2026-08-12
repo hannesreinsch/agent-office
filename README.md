@@ -65,6 +65,7 @@ Ctrl-Shift chords.
 |---|---|
 | `⌃⇧←↑↓→` | move between panes |
 | `⌃⇧n` | new Claude session, into the left column |
+| `⌃⇧t` | the same, but type the task first |
 | `⌃⇧a` `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle agent view / shell / editor / chat |
 | `⌃⇧w` | close this pane, and get the memory back |
 | `⌃⇧x` | park this pane, still running, same key brings it back |
@@ -119,12 +120,25 @@ live ones for exactly that reason.
 | `office chat` `shell` `agents` `edit` | toggle a right-strip pane |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
-| `office clean` | pick panes to close, heaviest first |
+| `office clean` | pick panes to close, heaviest first (rarely needed) |
 | `office clean --idle [h]` | no picker: close anything idle over `h` hours |
 | `office fixagents` | restart the agent view when it stops responding |
 | `office help` | all of the above, with the diagram |
 
 The command is `office`. `ao` and `o` are aliases for it.
+
+## Three commands
+
+`office up`, `office break`, `office off`. Everything else has a key.
+
+Nothing accumulates behind your back, so there is no housekeeping to remember.
+Walking in reaps anything you parked and never came back to (12 hours by
+default, `OFFICE_REAP_HOURS`), and going home takes the whole tmux server with
+it. `office doctor` and `office clean` are there when you want to look, not
+because you have to.
+
+Panes you can see are never closed automatically. A script that kills an agent
+you were coming back to is worse than a full disk.
 
 ## Configuration
 
@@ -135,7 +149,8 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_DEFAULT` | *(empty)* | repo that bare `office on` opens |
 | `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
 | `OFFICE_DEFAULT_DESKS` | `1` | Claude sessions opened at startup |
-| `OFFICE_CHAT_LABEL` | `CHAT` | name on the chat pane's border |
+| `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office up` |
+| `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
 | `OFFICE_ALWAYS_ON_CHECK` | `false` | exits 0 when your stack is up |
 | `OFFICE_ALWAYS_ON_START` | *(empty)* | run by `office on` |
@@ -181,11 +196,37 @@ binding makes tmux force the active pane into view-mode, where every Ctrl-Shift
 chord stops working and the pane looks frozen. Messages go to the status line
 instead.
 
-**What it cannot do:** a session you dispatch from inside the agent view
-belongs to Claude Code's daemon, not to a terminal, and cannot be attached to a
-second one. So it can never become a pane. `office task <what>` is the door
-that does work: it opens a Claude session as a pane with the task already
-given.
+**What it cannot do:** a session dispatched from inside the agent view can
+never become a pane. It belongs to Claude Code's daemon, and Claude Code
+refuses a second attachment in as many words:
+
+```
+Session ... is currently running as a background agent (bg).
+Use `claude agents` to find and attach to it, or add --fork-session
+to branch off a copy.
+```
+
+Forking would give you a second agent duplicating the first one's work, which
+is worse than useless. So `office` goes through the door that does work:
+`⌃⇧t`, type the task, and a Claude session opens in the left column already
+working on it. Same thought, one keystroke, and it is a real pane.
+
+## Your status bar stays yours
+
+`office.tmux.conf` sets bindings, pane borders and the cursor. It sets no
+colours, no status bar and no window styling, so your own theme is untouched.
+The two things it does own on the border are documented in the file itself:
+`@office_num` (the pane number, taken from geometry) and the derived label.
+
+If you want office facts on your status line, they are all plain formats:
+
+```tmux
+# panes in this office, and whether any Claude is waiting on you
+set -g status-right "#{window_panes} panes  #{session_name}"
+```
+
+Put your own `set -g pane-border-format` and status lines AFTER the
+`source-file` line, and they win.
 
 ## Safety
 

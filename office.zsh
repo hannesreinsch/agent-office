@@ -2,7 +2,7 @@
 #
 # https://github.com/hannesreinsch/agent-office
 #
-#   office on         walk in — open your office and start the day
+#   office up         walk in — open your office and start the day (= office on)
 #   office break      step out — detach; everything inside keeps running
 #   office off        go home — quit every office and stop the always-on stack
 #
@@ -31,7 +31,7 @@ CODE_ROOT="${CODE_ROOT:-$HOME/code}"
 OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = the one you are in
 # The chat pane: whatever talking to your agent looks like. Point it at your own
 # chat command and it becomes that. Left as a plain shell by default.
-OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-CHAT}"
+OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
 OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-exec $SHELL}"
 
 # ---------------------------------------------------------------- internals --
@@ -132,6 +132,31 @@ _office_number() {                     # <session>
         | sort -t'|' -k1,1n -k2,2n)"}; do
     tmux set -p -t "${${(s:|:)r}[3]}" @office_num $(( ++n )) 2>/dev/null
   done
+}
+
+# --- taking out the bins, so nobody has to remember to ---------------------
+# A parked pane is the only kind you can forget: it is invisible, and a parked
+# Claude session still holds half a gigabyte. Anything parked and untouched this
+# long is reaped when you next walk in.
+#
+# Panes you can SEE are never touched automatically. Those are a decision, and a
+# script that closes an agent you were coming back to is worse than a full disk.
+: ${OFFICE_REAP_HOURS:=12}
+_office_reap() {
+  tmux has-session -t "=$_OFFICE_STASH" 2>/dev/null || return 0
+  local now=$(date +%s) line w act pid n=0 mb=0
+  for line in ${(f)"$(tmux list-windows -t "=$_OFFICE_STASH" -F '#{window_id}|#{window_activity}' 2>/dev/null)"}; do
+    w=${${(s:|:)line}[1]}; act=${${(s:|:)line}[2]}
+    [[ $act == <-> ]] || continue
+    (( (now - act) / 3600 >= OFFICE_REAP_HOURS )) || continue
+    pid=$(tmux list-panes -t "$w" -F '#{pane_pid}' 2>/dev/null | head -1)
+    [[ -n $pid ]] && mb=$(( mb + $(_office_pane_mb "$pid") ))
+    tmux kill-window -t "$w" 2>/dev/null && (( n++ ))
+  done
+  (( $(tmux list-windows -t "=$_OFFICE_STASH" 2>/dev/null | wc -l) )) \
+    || tmux kill-session -t "=$_OFFICE_STASH" 2>/dev/null
+  (( n )) && print -P "%F{240}  tidied up: $n pane(s) parked over ${OFFICE_REAP_HOURS}h closed, ~${mb}MB back%f"
+  return 0
 }
 
 # --- remembering how you dragged the panes -----------------------------------
@@ -286,6 +311,7 @@ _office_open() {                       # <repo-path>
     tmux select-pane -t "$main"
   fi
   cd "$dir"
+  _office_reap                         # walking in takes the bins out
   _office_always_on_up                 # restore whatever `office off` stopped
   _office_attach "$s"
 }
@@ -519,7 +545,7 @@ _office_help() {
 office() {
   local cmd=${1:-help} dir
   case $cmd in
-    on|in|back|work|resume)
+    on|up|in|back|work|resume)
       dir=$(_office_find "$OFFICE_DEFAULT") || true
       [[ -z $dir ]] && dir=$(_office_root "$PWD")
       _office_open "$dir" ;;
