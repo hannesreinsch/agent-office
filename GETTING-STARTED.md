@@ -98,8 +98,7 @@ normally.)
 
 One thing worth knowing early: **Ctrl+Space, then `z`** blows the current pane
 up to fill the whole window, and again to put it back. When the agent is writing
-a lot and the pane feels cramped, that is the key. **Double-clicking inside a
-pane does the same thing**, if your hand is already on the mouse.
+a lot and the pane feels cramped, that is the key.
 
 **To copy something out, drag across it.** Let go and it is on your clipboard,
 in the shell and in the file editor both. No Cmd+C, no copy mode, nothing to
@@ -126,8 +125,7 @@ what the editor shows, listed the way a file tree reads. `cd src` in the shell,
 and the editor is showing `src`. The directory is printed above the list.
 
 To find something, just type part of its name or its folder: the list narrows as
-you type. `Ctrl+Space z` zooms the pane so the list fills the screen, and a
-double-click on any pane does the same.
+you type. `Ctrl+Space z` zooms the pane so the list fills the screen.
 
 Now you are inside a file, and here is the bit nobody remembers:
 
@@ -168,7 +166,6 @@ This is the actual point of the tool. One agent refactoring while another writes
 tests, and you moving between them.
 
 When one is finished, **Ctrl+Space, then `q`** closes that pane. It asks first.
-(`q` does the same, if that is what your fingers reach for.)
 
 ---
 
@@ -216,8 +213,8 @@ And the mouse, with no key at all:
 
 | | |
 |---|---|
-| double-click a pane | zoom it full screen, and back. The same thing `z` does |
 | drag across text | it is on the clipboard when you let go, nothing to press |
+| double-click a word | the same, for one word |
 
 Each pane's top border shows the key that acts on it, and the bar along the
 bottom lists the rest. **Whatever is bright on that bar is closed.**

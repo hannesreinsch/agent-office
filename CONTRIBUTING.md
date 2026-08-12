@@ -80,5 +80,5 @@ tmux list-keys -T root | grep -E ' M-| C-S-|Mouse|Click'
 ```
 
 If a key does nothing, that last one plus your terminal's name is usually the
-whole answer. It covers the mouse too: a double-click that will not zoom, or a
-drag that does not copy, shows up there as a missing or shadowed binding.
+whole answer. It covers the mouse too: a drag or a double-click that does not
+copy shows up there as a missing or shadowed binding.

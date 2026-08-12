@@ -883,8 +883,8 @@ _office_help() {
   print -P "  ${d}Only the arrows are a chord, because they carry their modifier natively.${r}"
   print -P "  ${d}Everything else is the prefix: no terminal setup, same on every OS.${r}"
   print -P "  ${d}Each border shows the key for that pane. Or just click one with the mouse:${r}"
-  print -P "  ${d}double-click a pane to zoom it and again to come back, and drag across${r}"
-  print -P "  ${d}text to copy it — it is on the clipboard when you let go.
+  print -P "  ${d}drag across text to copy it, or double-click a word — either way it${r}"
+  print -P "  ${d}is on the clipboard when you let go.
 ${r}"
 
   print -P "${g}RUNNING SEVERAL AGENTS${r} ${d}— the whole point of this setup${r}"

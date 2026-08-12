@@ -151,7 +151,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | `a` | park every session, bring them all back, or open one if there are none |
 | `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
-| `z` | zoom this pane full screen, and back. A double-click does the same |
+| `z` | zoom this pane full screen, and back |
 | arrows | move, and the only way out of a file you have open |
 
 
@@ -160,10 +160,10 @@ what you do most and arrows carry their modifier natively; every action is the
 prefix, which is the tmux convention and needs **no terminal configuration on
 any platform**. **One action, one key** — there is no second way to close a
 pane or move between them, because a scheme with synonyms is one you have to
-read twice to learn once. The mouse works too: click a pane to focus it, drag a border to
-resize, **double-click a pane to zoom it** and again to come back, and **drag
-across text to copy it** — it is on the system clipboard the moment you let go,
-in the shell and in the file editor both. It stays that way until `office off`.
+read twice to learn once. The mouse works too: click a pane to focus it, drag a
+border to resize, and **drag across text to copy it** — it is on the system
+clipboard the moment you let go, in the shell and in the file editor both. It
+stays that way until `office off`.
 
 ### The keys are on the status bar
 
@@ -218,25 +218,29 @@ scheme, no setup, nothing to relearn per machine.
 
 ### What the mouse does, and where it stops
 
-Two gestures, and one rule for both. **Double-click a pane** to zoom it and
-double-click again to come back: it is `Ctrl-Space z`, reached with the hand
-that is already on the mouse. **Drag across text** and it is on the system
-clipboard when you let go, with nothing to press after it.
+The mouse does one thing here, and it is **copying**. Drag across text and it is
+on the system clipboard when you let go; a double-click takes the word under it.
+Nothing to press afterwards, in the shell and in the file editor both.
 
-The rule is that **an app that asked for the mouse keeps it.** So a double-click
-still opens the file you hit in the file list, still places a cursor in an open
-file, and a drag inside `htop` or `lazygit` is still theirs. What you lose is
-tmux's own default double-click, which copied the word under it; a triple-click
-still copies the whole line.
+The rule is that **an app that asked for the mouse keeps it.** A drag inside
+`htop` or `lazygit` is theirs, a double-click still opens the file you hit in
+the file list and still places a cursor in an open file.
 
 The FILE EDITOR is the one exception, and it is deliberate. micro and fzf both
 hold the mouse there, and neither can reach the system clipboard on macOS —
 micro copies a mouse selection to the PRIMARY selection, which is an X11 idea
 macOS does not have, so the text went nowhere you could paste from. Office keeps
 the *drag* for tmux in that one pane kind, gated on `@office_kind`, so the pane
-you read files in copies like the pane you read output in. Clicks and
-double-clicks there still belong to the app, and Shift+arrow still selects
-inside an open file.
+you read files in copies like the pane you read output in. Clicks still belong
+to the app, and Shift+arrow still selects inside an open file.
+
+**A double-click does not zoom, and briefly did.** It was a mouse synonym for
+`Ctrl-Space z`, removed for two measured reasons: it could never work in a pane
+running micro, fzf or Claude Code, because taking the double-click from them
+would cost the file list its click-to-open and Claude Code its own
+select-to-copy; and even where it worked it was slow, because tmux cannot fire a
+double-click until the triple-click window has passed, and that wait is not
+tunable. A key that works in every pane and answers instantly wins.
 
 
 ## Park versus close
@@ -365,7 +369,6 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
-| a double-click does not zoom that pane | something in it holds the mouse: the file list opens what you hit, an open file places the cursor. `Ctrl-Space z` always works |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space q`, reopen with `Ctrl-Space c` |
 | `Ctrl-Space w` does nothing | `w` is gone: it is `Ctrl-Space q` now, and it is the only close key |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
