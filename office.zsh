@@ -26,6 +26,7 @@
 # Key bindings live in office.tmux.conf; `office help` lists every one of them.
 # Configure with the OFFICE_* variables below; see the README.
 
+_OFFICE_HOME=${0:A:h}                  # where this package lives, for its helpers
 CODE_ROOT="${CODE_ROOT:-$HOME/code}"
 OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = the one you are in
 # The chat pane: whatever talking to your agent looks like. Point it at your own
@@ -118,6 +119,37 @@ _office_shell_dir() {
   [[ -n $d && -d $d ]] && print -r -- "$d" || print -r -- "$PWD"
 }
 
+# When the shell pane moves, tell the editor. zsh fires chpwd on every `cd`, and
+# office.zsh is already sourced in that pane, so the shell can announce it
+# instead of the editor polling for it. The nudge is Ctrl-R, which is the
+# editor's own reload key, and it is only sent when fzf is actually in the
+# foreground there: pressing it into an open file would type into your file.
+_office_editor_sync() {
+  local s p
+  [[ -n $TMUX ]] || return 0
+  # Decided here, not at load: a pane sources this file before office has
+  # finished labelling it, so asking at startup always said "not the shell".
+  # And it has to be -t $TMUX_PANE: a bare `display -p` reports the ACTIVE pane,
+  # which is whichever one you are looking at, never the one asking.
+  [[ $(tmux display -p -t "$TMUX_PANE" '#{@office_kind}' 2>/dev/null) == SHELL ]] || return 0
+  s=$(_office_sessname "$(_office_root "$PWD")")
+  local tty
+  # NB: #{pane_current_command} says "zsh" here, because fzf is a child of the
+  # loop rather than the pane's own process. Ask the pane's terminal instead.
+  read -r p tty <<< "$(tmux list-panes -t "=$s" -F '#{pane_id} #{pane_tty} #{@office_kind}' 2>/dev/null \
+      | awk '$3=="EDITOR" {print $1, $2; exit}')"
+  [[ -n $p && -n $tty ]] || return 0
+  ps -t "${tty#/dev/}" -o comm= 2>/dev/null | grep -qx 'fzf' || return 0
+  tmux send-keys -t "$p" C-r 2>/dev/null
+  return 0
+}
+
+# Every interactive zsh inside tmux gets the hook; the function itself decides
+# whether this pane is the office's shell. It costs one tmux query per `cd`.
+if [[ -n $TMUX && -o interactive ]]; then
+  autoload -Uz add-zsh-hook 2>/dev/null && add-zsh-hook chpwd _office_editor_sync
+fi
+
 _office_pick_file() {                  # [dir]
   local target=${1:-} where
   if [[ -z $target || -d $target ]]; then
@@ -131,14 +163,26 @@ _office_pick_file() {                  # [dir]
     # typing a folder name narrows to it. Paths are relative to the directory in
     # the prompt, so the list stays readable no matter how deep you are.
     # height 100 so a zoomed pane is actually full of files.
-    target=$( cd "$where" && \
-      { fd --type f --hidden --follow --exclude .git --exclude node_modules --strip-cwd-prefix 2>/dev/null \
-          || find . -type f -not -path '*/.git/*' 2>/dev/null | sed 's|^\./||' ; } \
-      | sort \
+    #
+    # It follows the shell LIVE. `focus` fires whenever the highlighted line
+    # changes, so moving the cursor is enough to notice a `cd` next door, and
+    # `transform` only emits a reload when the directory actually differs.
+    # $seen holds the last directory it drew, because fzf bindings are separate
+    # processes with nowhere else to keep it.
+    local cwd=$_OFFICE_HOME/bin/office-cwd sess seen
+    sess=$(_office_sessname "$(_office_root "$PWD")")
+    seen=$(mktemp) && print -rn -- "$where" > $seen
+    local list='fd --type f --hidden --follow --exclude .git --exclude node_modules --strip-cwd-prefix 2>/dev/null || find . -type f -not -path "*/.git/*" | sed "s|^\./||"'
+    # NB: {} stands alone in the preview. fzf single-quotes the substitution, so
+    # "$dir/{}" becomes "$dir/'file'" and the quote splits it into two arguments.
+    target=$( cd "$where" && eval "$list" | sort \
       | fzf --prompt="${where:t}/ > " --height=100% --reverse \
             --header="$where" \
-            --preview "bat --style=numbers --color=always --line-range :300 \"$where/{}\" 2>/dev/null || cat \"$where/{}\"" \
-            --preview-window=right:55%:wrap ) || return 1
+            --preview "d=\$($cwd $sess); cd \"\${d:-$where}\" 2>/dev/null; bat --style=numbers --color=always --line-range :300 {} 2>/dev/null || cat {}" \
+            --preview-window=right:55%:wrap \
+            --bind "focus:transform:d=\$($cwd $sess); [ -z \"\$d\" ] || [ \"\$d\" = \"\$(cat $seen)\" ] || { printf %s \"\$d\" > $seen; printf 'reload(cd %s && $list | sort)+change-prompt(%s/ > )+change-header(%s)' \"\$d\" \"\${d##*/}\" \"\$d\"; }" \
+            --bind "ctrl-r:transform:d=\$($cwd $sess); [ -n \"\$d\" ] && { printf %s \"\$d\" > $seen; printf 'reload(cd %s && $list | sort)+change-prompt(%s/ > )+change-header(%s)' \"\$d\" \"\${d##*/}\" \"\$d\"; }" ) || { rm -f $seen; return 1 }
+    where=$(<$seen); rm -f $seen
     [[ -n $target ]] || return 1
     target="$where/$target"
   fi
