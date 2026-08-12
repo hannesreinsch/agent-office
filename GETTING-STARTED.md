@@ -95,9 +95,13 @@ writing a lot and the pane feels cramped, that is the key.
 This is the part that catches everyone, including people who have used
 terminals for years.
 
-Press **Ctrl+Shift+E** to open the editor pane. You get a list of files with a
-search box. Type a few letters to filter, arrow up and down, **Enter** to open
-one.
+Press **Ctrl+Shift+E** to open the editor pane. You get a list of every file in
+your project with a search box. Type a few letters to filter, arrow up and down,
+**Enter** to open one.
+
+The ones marked `*` at the top are **files you or your agent have changed**,
+most recently touched first. That is nearly always what you are looking for: the
+agent says it edited something, and it is the first line of the list.
 
 Now you are inside a file, and here is the bit nobody remembers:
 

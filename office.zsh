@@ -106,18 +106,31 @@ _office_editor() {
 # fuzzy-pick a file and open it. Files you have changed come first: it is nearly
 # always one of them. Returns non-zero when you cancel, which is what lets the
 # editor pane loop until you actually want out.
+zmodload -F zsh/stat b:zstat 2>/dev/null
 _office_pick_file() {                  # [dir]
   local target=${1:-}
   if [[ -z $target || -d $target ]]; then
     local where=${target:-.}
-    target=$( { git -C "$where" ls-files -m -o --exclude-standard 2>/dev/null
-                fd --type f --hidden --follow --exclude .git --exclude node_modules . "$where" 2>/dev/null \
-                  || find "$where" -type f -not -path '*/.git/*' 2>/dev/null
-              } | awk '!seen[$0]++' \
-             | fzf --prompt='edit> ' --height=70% --reverse \
-                   --header='changed files first · enter opens · Esc closes the editor pane' \
-                   --preview 'bat --style=numbers --color=always --line-range :300 {} 2>/dev/null || cat {}' \
+    # Changed files first, newest first inside that: after an agent edits
+    # something, the thing you want to read is at the very top. They are marked,
+    # because a list that silently puts four files above ten thousand others
+    # just looks like an arbitrary list.
+    #
+    # The marker is ASCII on purpose. `cut -c` counts BYTES under a non-UTF-8
+    # locale, so a bullet would be sliced in half and the preview would open a
+    # file that does not exist.
+    target=$( { git -C "$where" ls-files -m -o --exclude-standard 2>/dev/null \
+                  | while IFS= read -r f; do [[ -f $where/$f ]] && print -r -- "$(zstat +mtime -- "$where/$f" 2>/dev/null || print 0) * $f"; done \
+                  | sort -rn | cut -d' ' -f2-
+                { fd --type f --hidden --follow --exclude .git --exclude node_modules . "$where" 2>/dev/null \
+                    || find "$where" -type f -not -path '*/.git/*' 2>/dev/null ; } \
+                  | sed 's|^\./||' | sed 's|^|  |'
+              } | awk '!seen[substr($0,3)]++' \
+             | fzf --prompt='edit> ' --height=70% --reverse --ansi \
+                   --header='* = you or your agent changed it, newest first · enter opens · Esc leaves' \
+                   --preview 'p=$(printf "%s" {} | cut -c3-); bat --style=numbers --color=always --line-range :300 "$p" 2>/dev/null || cat "$p"' \
                    --preview-window=right:60%:wrap) || return 1
+    target=${target[3,-1]}
   fi
   [[ -n $target ]] || return 1
   local -a ed; ed=(${(z)$(_office_editor)})
