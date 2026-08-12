@@ -11,6 +11,10 @@ In the desktop app you have one conversation, and it asks permission to touch
 your files. In the terminal your agent *is* in your project: it reads the repo,
 edits files, runs the tests, and you watch it happen.
 
+It also opens a door the desktop app does not: once you are here, the agents you
+build are terminal programs too, and you can talk to them in the same window
+without building a web app first.
+
 The catch is that one agent working alone leaves you waiting. So people run
 three or four at once, on different parts of the work. That is the moment the
 terminal stops being pleasant: four windows, no idea which one needs you, and a
@@ -50,8 +54,8 @@ office on
 ┌─────────────────────────────┬──────────────┐
 │ 1 CLAUDE                    │ 2 SHELL      │
 │                             │              │
-│   your agent lives here     ├──────────────┤
-│                             │ 3 EDITOR     │
+│   your coding agent         ├──────────────┤
+│   claude / codex / any CLI  │ 3 EDITOR     │
 │                             │              │
 └─────────────────────────────┴──────────────┘
 ```
@@ -71,8 +75,11 @@ says it fixed the tests, so you run them.
 the two work together: `cd` in the shell to aim, browse and open in the editor.
 For reading what the agent did, or a quick manual fix.
 
-There is a fourth, **chat**, closed by default. It is for agents that have a
-separate conversational mode. Ignore it until you need it.
+There is a fourth, **AGENT CHAT**, closed until you have something to put in it.
+That one is not for a coding agent: it is for an agent *you* build. Once you
+have one, this is where you talk to it and give it work, without ever standing
+up a dashboard or wiring up Slack. Ignore it on day one, and see
+[the README](README.md#bringing-your-own-agent) when you get there.
 
 ---
 

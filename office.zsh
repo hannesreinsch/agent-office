@@ -497,7 +497,8 @@ _office_strip_title() {
   print -r -- "SHELL · $(basename "$1")${b:+ · $b}"
 }
 
-# The cockpit. ONE window. The LEFT column is nothing but agent sessions —
+# The cockpit. ONE window. LEFT: the agents that write code (claude, codex,
+# whatever OFFICE_SESSION_CMD points at) —
 # three of them, open and ready. The RIGHT strip holds everything you glance at,
 # and every one of those four is a toggle:
 #
@@ -686,19 +687,18 @@ _office_help() {
 
   print -P "${g}WHAT YOU GET${r} ${d}— ONE window. Everything visible at once.${r}"
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}⌃⇧s${r}"
-  print -P "    ${d}├─────────────────────────────┤${r}──────────────${d}┤${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE 2${r}                    ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}⌃⇧e${r}"
-  print -P "    ${d}│${r}                             ${d}├──────────────┤${r}"
-  print -P "    ${d}│${r}                             ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}⌃⇧e${r}"
-  print -P "    ${d}├─────────────────────────────┤${r}──────────────${d}┤${r}"
-  print -P "    ${d}│${r} ${g}CLAUDE 3${r}                    ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}⌃⇧c${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}^Space s${r}"
+  print -P "    ${d}├─────────────────────────────┼──────────────┤${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}^Space e${r}"
+  print -P "    ${d}│${r}              ${d}one more${r}       ${d}├──────────────┤${r}"
+  print -P "    ${d}│${r}                             ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
   print -P "    ${d}└─────────────────────────────┴──────────────┘${r}"
-  print -P "  ${d}LEFT is nothing but agent sessions, open from the${r}"
-  print -P "  ${d}start. RIGHT is everything you only glance at, top to bottom in the${r}"
-  print -P "  ${d}order you reach for them, and each of those four is a toggle.${r}"
-  print -P "  ${d}CHAT starts closed: set OFFICE_CHAT_CMD to your agent's chat command${r}"
-  print -P "  ${d}first, or it is just another shell. Then Ctrl-Shift-c opens it.\n${r}"
+  print -P "    ${d}  the agents that build it        the agent${r}"
+  print -P "    ${d}  claude / codex / your own       you built${r}"
+  print -P "  ${d}LEFT is whatever OFFICE_SESSION_CMD points at, up to four, kept even.${r}"
+  print -P "  ${d}RIGHT is a shell, an editor, and a chat wired to the agent YOU built:${r}"
+  print -P "  ${d}give OFFICE_CHAT_CMD a command and that pane is your control surface,${r}"
+  print -P "  ${d}with no dashboard to stand up and no Slack app to register.\n${r}"
 
   print -P "${g}THE KEYS${r} ${d}— two rules, and the second one covers everything${r}"
   print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
