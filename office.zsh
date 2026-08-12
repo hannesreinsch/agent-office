@@ -30,6 +30,9 @@
 
 _OFFICE_OWN_PGID=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
 _OFFICE_HOME=${0:A:h}                  # where this package lives, for its helpers
+zmodload -F zsh/stat b:zstat 2>/dev/null
+# what was on disk when this shell loaded it — see office() for why.
+_OFFICE_MTIME=$(zstat +mtime "$_OFFICE_HOME/office.zsh" 2>/dev/null)
 CODE_ROOT="${CODE_ROOT:-$HOME/code}"
 OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = the one you are in
 # The chat pane: whatever talking to your agent looks like. Point it at your own
@@ -136,7 +139,6 @@ _office_editor() {
 # fuzzy-pick a file and open it. Files you have changed come first: it is nearly
 # always one of them. Returns non-zero when you cancel, which is what lets the
 # editor pane loop until you actually want out.
-zmodload -F zsh/stat b:zstat 2>/dev/null
 
 # Where the shell pane is standing right now, or this shell's own directory when
 # there is no office and no shell pane.
@@ -938,6 +940,16 @@ ${r}"
 # office <on|break|off|repo|pick|new|solo|doctor|clean> — your whole workspace, one word.
 office() {
   local cmd=${1:-help} dir
+  # A shell keeps running the copy of this file it sourced when it started. That
+  # is how `office off; office on` right after an update gives you back the OLD
+  # office, in an old shape, with the fix you just installed nowhere in it —
+  # and nothing on screen says why. If the file on disk has moved since, load it
+  # and run the new one. Re-sourcing is idempotent: every setting is a default,
+  # and add-zsh-hook does not double up.
+  local _m; _m=$(zstat +mtime "$_OFFICE_HOME/office.zsh" 2>/dev/null)
+  if [[ -n $_m && -n $_OFFICE_MTIME && $_m != $_OFFICE_MTIME ]]; then
+    source "$_OFFICE_HOME/office.zsh" && { office "$@"; return }
+  fi
   case $cmd in
     on|up|in|back|work|resume)
       dir=$(_office_find "$OFFICE_DEFAULT") || true
@@ -1000,7 +1012,8 @@ office() {
       fi
       git -C "$_OFFICE_HOME" pull --ff-only || return 1
       tmux source-file "$_OFFICE_HOME/office.tmux.conf" 2>/dev/null
-      print "updated. Reload your shells (or 'office off' and 'office on') to pick up the rest." ;;
+      print "updated. The next 'office' command in any shell runs the new version;"
+      print "panes already open keep what they are running until you close them." ;;
     renumber)
       _office_number "$(_office_here)" ;;
     sweep|stale)
