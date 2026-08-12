@@ -1,0 +1,16 @@
+name: An idea
+description: Something office should do, or should stop doing.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth reading `CONTRIBUTING.md` first: this deliberately has no plugin
+        system, no config file and no daemon, and `office off` kills the tmux
+        server so nothing may depend on persistent state.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you want, and the moment you wanted it
+      description: The situation matters more than the feature. What were you doing?
+    validations: { required: true }

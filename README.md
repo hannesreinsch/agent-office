@@ -437,6 +437,40 @@ its format engine, where `#(...)` executes a shell command, so a git branch or
 an `office task` description containing one would otherwise run on every
 border redraw.
 
+## Contributing
+
+Yes, please. This is small enough that one person can read all of it in an
+afternoon, which is the whole idea.
+
+**Something is broken:** open an issue. The template asks for three commands;
+paste them even when the problem looks obvious, because a key that does nothing
+is almost always a terminal that never sent it, and those three lines say so
+immediately.
+
+**You want to change something:** fork, branch off `main`, open a pull request.
+`main` is protected so everything lands through one, mine included. Small and
+obviously-correct gets merged quickly. Anything that changes the layout model or
+adds a command is worth an issue first, so you do not build something that turns
+out to be out of scope.
+
+There is no test suite, because almost everything here is a side effect on a
+live tmux server. Instead, say how you verified it: build a throwaway office,
+look at it, tear it down. [CONTRIBUTING.md](CONTRIBUTING.md) has the exact
+snippet, along with the constraints that are not obvious from reading the code.
+
+**Especially welcome:**
+
+- other terminals: the chord layer is two files in `terminals/` and `iterm/`,
+  and Ghostty, WezTerm, Kitty and Alacritty all deserve one
+- other agents: `OFFICE_SESSION_CMD` should be all it takes, and if it is not
+  for yours, that is a bug worth hearing about
+- Linux and WSL: the author develops on macOS, so those paths get the least
+  wear
+
+**Not in scope,** so nobody wastes an afternoon: a plugin system, a config file,
+a daemon, or a dependency doing what twenty lines already do. `office off` kills
+the tmux server, and everything has to survive that.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
