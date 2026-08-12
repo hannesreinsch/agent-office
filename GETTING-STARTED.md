@@ -67,9 +67,10 @@ space.
 For `git status`, `npm test`, `ls`. You use it to *check* the agent's work: it
 says it fixed the tests, so you run them.
 
-**3. The editor (bottom right).** A file picker. Files you have changed are
-listed first, because that is nearly always the one you want. For reading what
-the agent did, or a quick manual fix.
+**3. The editor (bottom right).** A file picker that follows the shell pane, so
+the two work together: `cd` in the shell, browse there in the editor. Files you
+have changed are marked and come first. For reading what the agent did, or a
+quick manual fix.
 
 There is a fourth, **chat**, closed by default. It is for agents that have a
 separate conversational mode. Ignore it until you need it.
@@ -95,13 +96,18 @@ writing a lot and the pane feels cramped, that is the key.
 This is the part that catches everyone, including people who have used
 terminals for years.
 
-Press **Ctrl+Shift+E** to open the editor pane. You get a list of every file in
-your project with a search box. Type a few letters to filter, arrow up and down,
-**Enter** to open one.
+Press **Ctrl+Shift+E** to open the editor pane. You get a list of files with a
+search box. Type a few letters to filter, arrow up and down, **Enter** to open
+one.
 
-The ones marked `*` at the top are **files you or your agent have changed**,
-most recently touched first. That is nearly always what you are looking for: the
-agent says it edited something, and it is the first line of the list.
+Two things make that list useful rather than overwhelming:
+
+- **It follows the shell pane.** Whatever directory the shell is standing in is
+  what the editor shows. `cd somewhere` in the shell, and the editor is there
+  too. The directory is printed in the prompt.
+- **Files marked `*` come first**, most recently changed at the top. Those are
+  the ones you or your agent have edited, so when the agent says it changed
+  something, it is the first line of the list.
 
 Now you are inside a file, and here is the bit nobody remembers:
 

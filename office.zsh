@@ -107,10 +107,26 @@ _office_editor() {
 # always one of them. Returns non-zero when you cancel, which is what lets the
 # editor pane loop until you actually want out.
 zmodload -F zsh/stat b:zstat 2>/dev/null
+
+# Where the shell pane is standing right now, or this shell's own directory when
+# there is no office and no shell pane.
+_office_shell_dir() {
+  local s d
+  s=$(_office_sessname "$(_office_root "$PWD")")
+  d=$(tmux list-panes -t "=$s" -F '#{@office_kind}|#{pane_current_path}' 2>/dev/null \
+      | awk -F'|' '$1=="SHELL" {print $2; exit}')
+  [[ -n $d && -d $d ]] && print -r -- "$d" || print -r -- "$PWD"
+}
+
 _office_pick_file() {                  # [dir]
   local target=${1:-}
   if [[ -z $target || -d $target ]]; then
-    local where=${target:-.}
+    # Follow the SHELL pane. tmux tracks a pane's working directory live, so
+    # `cd` over there and the next time this list opens you are browsing that
+    # directory. The list reopens every time you close a file, which is the
+    # natural moment to resync and costs nothing.
+    local where=${target:-$(_office_shell_dir)}
+    [[ -d $where ]] || where=$PWD
     # Changed files first, newest first inside that: after an agent edits
     # something, the thing you want to read is at the very top. They are marked,
     # because a list that silently puts four files above ten thousand others
@@ -126,8 +142,9 @@ _office_pick_file() {                  # [dir]
                     || find "$where" -type f -not -path '*/.git/*' 2>/dev/null ; } \
                   | sed 's|^\./||' | sed 's|^|  |'
               } | awk '!seen[substr($0,3)]++' \
-             | fzf --prompt='edit> ' --height=70% --reverse --ansi \
-                   --header='* = you or your agent changed it, newest first · enter opens · Esc leaves' \
+             | fzf --prompt="${where:t}/ > " --height=70% --reverse --ansi \
+                   --header="$where
+* = changed here, newest first · follows the shell pane · Esc leaves" \
                    --preview 'p=$(printf "%s" {} | cut -c3-); bat --style=numbers --color=always --line-range :300 "$p" 2>/dev/null || cat "$p"' \
                    --preview-window=right:60%:wrap) || return 1
     target=${target[3,-1]}
