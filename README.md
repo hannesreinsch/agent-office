@@ -242,6 +242,7 @@ live ones for exactly that reason.
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
+| `office sweep [h]` | close offices you walked away from, and everything in them |
 | `office clean --idle [h]` | no picker: close anything idle over `h` hours |
 | `office help` | all of the above, with the diagram |
 
@@ -383,6 +384,24 @@ to the background and swap which pane displays the agent list. A label pinned
 at startup starts lying, and you steer by it and wonder why the arrows do
 nothing. The border reads `#{pane_title}`, which is what the pane shows right
 now.
+
+**`office off` kills everything an office started.** Not just the panes:
+`kill-server` only sends SIGHUP to a pane's children, which anything that
+detached itself survives, and agent CLIs leave host and daemon processes behind
+that no pane is the parent of. So the process *group* of every pane is taken
+first and made sure of afterwards. Nothing outlives going home.
+
+**`office sweep` is for the offices you never closed.** An office survives a
+closed terminal on purpose, and the cost is that one from three days ago is
+still holding four agents with no window anywhere. `office sweep` lists every
+detached office idle longer than 12 hours (`office sweep 2` for a shorter
+threshold), asks, then closes them and everything inside. `office on` mentions
+them when it finds them, and never closes them for you: one of those might be
+four agents mid-task.
+
+It is scoped to tmux sessions this tool created and nothing else. An earlier
+attempt matched process *names*, which swept in the desktop app and the tmux
+server itself. A broom that wide is a footgun.
 
 **`office off` is a reset, on purpose.** It keeps nothing: not the pane sizes,
 not what you parked, not the shape you dragged things into. That makes it the
