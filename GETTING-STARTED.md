@@ -67,10 +67,9 @@ space.
 For `git status`, `npm test`, `ls`. You use it to *check* the agent's work: it
 says it fixed the tests, so you run them.
 
-**3. The editor (bottom right).** A file picker that follows the shell pane, so
-the two work together: `cd` in the shell, browse there in the editor. Files you
-have changed are marked and come first. For reading what the agent did, or a
-quick manual fix.
+**3. The editor (bottom right).** A file browser that follows the shell pane, so
+the two work together: `cd` in the shell to aim, browse and open in the editor.
+For reading what the agent did, or a quick manual fix.
 
 There is a fourth, **chat**, closed by default. It is for agents that have a
 separate conversational mode. Ignore it until you need it.
@@ -100,14 +99,12 @@ Press **Ctrl+Shift+E** to open the editor pane. You get a list of files with a
 search box. Type a few letters to filter, arrow up and down, **Enter** to open
 one.
 
-Two things make that list useful rather than overwhelming:
+**It follows the shell pane.** Whatever directory the shell is standing in is
+what the editor shows, listed the way a file tree reads. `cd src` in the shell,
+and the editor is showing `src`. The directory is printed above the list.
 
-- **It follows the shell pane.** Whatever directory the shell is standing in is
-  what the editor shows. `cd somewhere` in the shell, and the editor is there
-  too. The directory is printed in the prompt.
-- **Files marked `*` come first**, most recently changed at the top. Those are
-  the ones you or your agent have edited, so when the agent says it changed
-  something, it is the first line of the list.
+To find something, just type part of its name or its folder: the list narrows as
+you type. `⌃⇧z` zooms the pane so the list fills the screen.
 
 Now you are inside a file, and here is the bit nobody remembers:
 

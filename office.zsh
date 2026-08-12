@@ -119,35 +119,28 @@ _office_shell_dir() {
 }
 
 _office_pick_file() {                  # [dir]
-  local target=${1:-}
+  local target=${1:-} where
   if [[ -z $target || -d $target ]]; then
     # Follow the SHELL pane. tmux tracks a pane's working directory live, so
     # `cd` over there and the next time this list opens you are browsing that
     # directory. The list reopens every time you close a file, which is the
     # natural moment to resync and costs nothing.
-    local where=${target:-$(_office_shell_dir)}
+    where=${target:-$(_office_shell_dir)}
     [[ -d $where ]] || where=$PWD
-    # Changed files first, newest first inside that: after an agent edits
-    # something, the thing you want to read is at the very top. They are marked,
-    # because a list that silently puts four files above ten thousand others
-    # just looks like an arbitrary list.
-    #
-    # The marker is ASCII on purpose. `cut -c` counts BYTES under a non-UTF-8
-    # locale, so a bullet would be sliced in half and the preview would open a
-    # file that does not exist.
-    target=$( { git -C "$where" ls-files -m -o --exclude-standard 2>/dev/null \
-                  | while IFS= read -r f; do [[ -f $where/$f ]] && print -r -- "$(zstat +mtime -- "$where/$f" 2>/dev/null || print 0) * $f"; done \
-                  | sort -rn | cut -d' ' -f2-
-                { fd --type f --hidden --follow --exclude .git --exclude node_modules . "$where" 2>/dev/null \
-                    || find "$where" -type f -not -path '*/.git/*' 2>/dev/null ; } \
-                  | sed 's|^\./||' | sed 's|^|  |'
-              } | awk '!seen[substr($0,3)]++' \
-             | fzf --prompt="${where:t}/ > " --height=70% --reverse --ansi \
-                   --header="$where
-* = changed here, newest first · follows the shell pane · Esc leaves" \
-                   --preview 'p=$(printf "%s" {} | cut -c3-); bat --style=numbers --color=always --line-range :300 "$p" 2>/dev/null || cat "$p"' \
-                   --preview-window=right:60%:wrap) || return 1
-    target=${target[3,-1]}
+    # Plain, sorted, relative: a file list you can read like a tree, where
+    # typing a folder name narrows to it. Paths are relative to the directory in
+    # the prompt, so the list stays readable no matter how deep you are.
+    # height 100 so a zoomed pane is actually full of files.
+    target=$( cd "$where" && \
+      { fd --type f --hidden --follow --exclude .git --exclude node_modules --strip-cwd-prefix 2>/dev/null \
+          || find . -type f -not -path '*/.git/*' 2>/dev/null | sed 's|^\./||' ; } \
+      | sort \
+      | fzf --prompt="${where:t}/ > " --height=100% --reverse \
+            --header="$where" \
+            --preview "bat --style=numbers --color=always --line-range :300 \"$where/{}\" 2>/dev/null || cat \"$where/{}\"" \
+            --preview-window=right:55%:wrap ) || return 1
+    [[ -n $target ]] || return 1
+    target="$where/$target"
   fi
   [[ -n $target ]] || return 1
   local -a ed; ed=(${(z)$(_office_editor)})
@@ -161,6 +154,7 @@ _office_pick_file() {                  # [dir]
     $ed "$target"
   fi
 }
+
 
 # --- the right strip: shell, editor, chat, top to bottom ---------------------
 # The order is data, so a pane that is toggled off and back on lands where it
