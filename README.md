@@ -97,11 +97,12 @@ border to resize, and your layout is remembered.
 chord, put a field there that is always visible and opens the same prompt when
 you click it:
 
+Either take the shipped theme (below), which includes it, or add it yourself:
+
 ```tmux
 set -g status-left "#[range=user|task] task: ⌃⇧t #[norange]"
-set -g status-left-length 24
 bind -n MouseDown1Status if -F '#{==:#{mouse_status_range},user}' \
-  { command-prompt -p "task:" 'run-shell -b "zsh -ic \"cd \\\"#{pane_current_path}\\\" && office task \\\"%%\\\"\" >/dev/null 2>&1"' } \
+  { command-prompt -p "task:" 'run-shell -b "office task %%"' } \
   { select-window -t= }
 ```
 
@@ -256,6 +257,25 @@ Forking would give you a second agent duplicating the first one's work, which
 is worse than useless. So `office` goes through the door that does work:
 `⌃⇧t`, type the task, and a Claude session opens in the left column already
 working on it. Same thought, one keystroke, and it is a real pane.
+
+## The theme, if you want it
+
+`office.tmux.conf` ships no colours at all, so your own theme survives
+installation. If you would rather take mine, it is one more line:
+
+```tmux
+source-file ~/code/agent-office/office.tmux.conf              # required
+source-file ~/code/agent-office/theme/office-theme.tmux.conf  # optional
+```
+
+Source it second, because it overrides the pane border. Monochrome by
+conviction: state is tone, weight and inversion, never hue, and exactly one
+colour is allowed on the bar. It also brings the clickable `task:` field
+described above, and a hook for your own status line:
+
+```sh
+OFFICE_STATUS_CMD=~/bin/my-status   # prints one line, refreshed every 5s
+```
 
 ## Your status bar stays yours
 
