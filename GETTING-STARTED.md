@@ -84,8 +84,10 @@ your first day.
 The keyboard version is **Shift and an arrow key**. Left, right, up, down,
 exactly where you would expect. Only that. Do not learn more yet.
 
-(Inside the editor pane, Shift+arrow selects text like it normally would. Use
-`Ctrl+Space` and an arrow to leave that one.)
+(One exception: while you have a **file open** in the editor, Shift+arrow
+selects text, as it should. `Ctrl+Q` closes the file and you can move again, or
+`Ctrl+Space` and an arrow leaves straight away. The file list itself moves
+normally.)
 
 One thing worth knowing early: **Ctrl+Space, then `z`** blows the current pane
 up to fill the whole window, and again to put it back. When the agent is writing
@@ -194,8 +196,9 @@ And `Ctrl+Space`, then:
 Each pane's top border shows the key that acts on it, and the bar along the
 bottom lists the rest. **Whatever is bright on that bar is closed.**
 
-If Shift+arrow ever does not move you, you are in the editor pane, where it
-selects text instead. **Ctrl+Space then an arrow** always moves, everywhere.
+If Shift+arrow ever does not move you, you have a file open in the editor, where
+it selects text instead. **Ctrl+Space then an arrow** always moves, from
+anywhere, including from inside a file.
 
 ---
 

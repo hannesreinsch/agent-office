@@ -182,10 +182,15 @@ set -g status-left-length 70
 operating system. Nothing to install, and nothing else claims it: not macOS
 Mission Control (that is Ctrl+arrow), not word-jump (Option+arrow).
 
-The one thing Shift+arrow normally does is select text, and that only matters in
-the editor pane, so there it passes straight through. One line to remember: **in
-the editor Shift+arrow selects, everywhere else it moves.** `Ctrl+Space` and an
-arrow moves in the editor too.
+The one thing Shift+arrow normally does is select text, and that matters only
+while a file is actually open. tmux can see the difference (the pane reports
+`micro` with a file open and `zsh` while the file list is showing), so the file
+list moves you like every other pane and only an open file keeps the key.
+
+**Every pane is reachable with Shift+arrow except a file you have open**, and
+there `Ctrl+Q` closes it back to the list, or `Ctrl+Space` and an arrow moves
+out directly. The prefix always wins, from anywhere, including from inside an
+editor or a scrollback.
 
 `Ctrl+Shift+arrow` still works if your fingers already know it. And Ctrl+Shift
 on a *letter* cannot be sent by a terminal at all: `Ctrl+Z` and `Ctrl+Shift+Z`
