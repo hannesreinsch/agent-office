@@ -1,0 +1,37 @@
+// Windows Terminal: the Ctrl+Shift chord layer.
+//
+// Paste the "actions" entries below into your settings.json (Settings > open
+// JSON file). If you already have an "actions" array, add these to it rather
+// than replacing it.
+//
+// Why this file exists at all: a terminal cannot encode Ctrl+Shift for a
+// LETTER. Ctrl+Z and Ctrl+Shift+Z are the same byte, 0x1A, because Shift is not
+// part of the wire format for control characters. So the terminal has to
+// translate the chord itself and send ESC+letter, which tmux reads as
+// M-<letter>. That is all these bindings do. The Ctrl+Shift+arrow ones send the
+// standard CSI 1;6 sequences, which tmux understands directly.
+//
+// Without this, everything still works: Ctrl+Space then the same letter.
+{
+  "actions": [
+    { "command": { "action": "sendInput", "input": "n" }, "keys": "ctrl+shift+n" },
+    { "command": { "action": "sendInput", "input": "a" }, "keys": "ctrl+shift+a" },
+    { "command": { "action": "sendInput", "input": "s" }, "keys": "ctrl+shift+s" },
+    { "command": { "action": "sendInput", "input": "e" }, "keys": "ctrl+shift+e" },
+    { "command": { "action": "sendInput", "input": "c" }, "keys": "ctrl+shift+c" },
+    { "command": { "action": "sendInput", "input": "t" }, "keys": "ctrl+shift+t" },
+    { "command": { "action": "sendInput", "input": "w" }, "keys": "ctrl+shift+w" },
+    { "command": { "action": "sendInput", "input": "x" }, "keys": "ctrl+shift+x" },
+    { "command": { "action": "sendInput", "input": "z" }, "keys": "ctrl+shift+z" },
+
+    { "command": { "action": "sendInput", "input": "[1;6A" }, "keys": "ctrl+shift+up" },
+    { "command": { "action": "sendInput", "input": "[1;6B" }, "keys": "ctrl+shift+down" },
+    { "command": { "action": "sendInput", "input": "[1;6C" }, "keys": "ctrl+shift+right" },
+    { "command": { "action": "sendInput", "input": "[1;6D" }, "keys": "ctrl+shift+left" }
+  ]
+}
+
+// Note on ctrl+shift+c and ctrl+shift+w: Windows Terminal uses those for copy
+// and close-pane by default, and the bindings above take them over. If you want
+// copy back, either drop the ctrl+shift+c line and use Ctrl-Space c for the
+// chat pane, or move Windows Terminal's copy to ctrl+insert.
