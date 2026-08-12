@@ -119,7 +119,11 @@ _office_desk_count() {
 _office_editor() {
   local e
   for e in $OFFICE_EDITOR $EDITOR micro nano vi; do
-    [[ -n $e ]] && command -v ${${(z)e}[1]} >/dev/null && { print -r -- "$e"; return }
+    # ${e%% *}, not ${${(z)e}[1]}: a nested substitution that produced ONE word
+    # is a scalar, so [1] took the first CHARACTER. `EDITOR=micro` asked for `m`,
+    # missed, and fell through to nano — which on macOS is a symlink to pico, no
+    # colours, no mouse. `${e%% *}` keeps the point of it ("code -w" -> code).
+    [[ -n $e ]] && command -v ${e%% *} >/dev/null && { print -r -- "$e"; return }
   done
   print -r -- vi
 }
@@ -213,7 +217,10 @@ _office_pick_file() {                  # [dir]
   # Put the keys where you need them: in the editor, while the file is open.
   # Nobody remembers how to get back out of an editor they use twice a week.
   if [[ ${ed[1]:t} == micro ]]; then
-    $ed -statusline true \
+    # softwrap, because a pane is narrower than a file: prose and long lines
+    # would otherwise run off the right edge and be read by scrolling sideways.
+    # scrollbar, so a long file shows how long it is. Both are micro defaults-off.
+    $ed -statusline true -softwrap true -scrollbar true \
         -statusformatr "^S save   ^Q back to the file list   ^Z undo   ^F find" \
         "$target"
   else
@@ -765,7 +772,9 @@ _office_always_on() { eval "$OFFICE_RUNNING_CHECK"; }
 # undo of `office off`. Skip it with `office solo` (tabs only, nothing started).
 _office_always_on_up() {
   [[ -n $OFFICE_SOLO || -z $OFFICE_ON_CMD ]] && return 0
-  command -v ${${(z)OFFICE_ON_CMD}[1]} >/dev/null || return 0
+  # same trap as _office_editor: a one-word OFFICE_ON_CMD would be tested one
+  # character at a time and the stack would never come up.
+  command -v ${OFFICE_ON_CMD%% *} >/dev/null || return 0
   _office_always_on && return 0
   print -P "%F{green}==> $OFFICE_ON_CMD%f"
   eval "$OFFICE_ON_CMD"

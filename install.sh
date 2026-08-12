@@ -24,7 +24,7 @@ fi
 # script is a thing you then owe maintenance on, and every one of these projects
 # documents its own better than a third party can.
 missing=()
-for c in tmux fzf fd; do command -v $c >/dev/null || missing+=($c) done
+for c in tmux fzf fd micro bat; do command -v $c >/dev/null || missing+=($c) done
 if (( ${#missing} )); then
   warn "not installed: ${missing}"
   if command -v brew >/dev/null; then
@@ -34,8 +34,10 @@ if (( ${#missing} )); then
   else
     print "      install them with your package manager, then run this again"
   fi
-  # tmux is the whole thing. fzf and fd are the file picker, so office still
-  # opens without them and only that pane is poorer.
+  # tmux is the whole thing. fzf and fd are the file picker and micro is what
+  # edits what you pick, so office still opens without them and only that pane is
+  # poorer — without micro it falls back to nano, which on macOS is pico: no
+  # colours, no mouse, no visible way out. bat is only the preview's highlighting.
   if ! command -v tmux >/dev/null; then
     print -u2 " !  office is tmux. Install it and run this again."
     exit 1

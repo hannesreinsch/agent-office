@@ -140,9 +140,10 @@ The path out is always the same: `Ctrl+Q` gets you back to the list, `Esc`
 leaves the list, `Ctrl+Space e` hides the pane.
 
 > **If your editor looks nothing like this** and shows no help at the bottom,
-> you have vim, because your `$EDITOR` is set to it. If you did not choose that
-> on purpose, put `export OFFICE_EDITOR=micro` in your `.zshrc`. If you did
-> choose it, you already know how to quit.
+> your `$EDITOR` points somewhere else: vim, or macOS's `nano`, which is really
+> `pico` — no colours, no mouse, no visible way out. `brew install micro` and
+> `export OFFICE_EDITOR=micro` in your `.zshrc` gives you the pane above. If you
+> chose vim on purpose, you already know how to quit.
 
 ---
 
