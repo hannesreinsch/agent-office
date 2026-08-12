@@ -55,6 +55,17 @@ OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
 _office_sessname() { basename "$1" | tr ' .:' '___'; }
 _office_root()     { git -C "${1:-$PWD}" rev-parse --show-toplevel 2>/dev/null || print -r -- "${1:-$PWD}"; }
 
+# WHICH office this pane is in. Ask tmux, never $PWD: deriving it from the
+# directory meant one `cd` out of the repo (or into a different one) renamed the
+# office out from under every helper — the editor stopped following the shell,
+# and `office n`/`layout`/`show` quietly targeted a session that did not exist.
+# Outside tmux there is no pane to ask, so the directory is still the answer.
+_office_here() {
+  local s
+  [[ -n $TMUX ]] && s=$(tmux display -p -t "${TMUX_PANE:-}" '#{session_name}' 2>/dev/null)
+  [[ -n $s ]] && print -r -- "$s" || _office_sessname "$(_office_root "$PWD")"
+}
+
 # every git repo under $CODE_ROOT, agent worktrees excluded
 _office_repos() {
   fd --type d --max-depth 4 --hidden --no-ignore '^\.git$' "$CODE_ROOT" 2>/dev/null \
@@ -122,7 +133,7 @@ zmodload -F zsh/stat b:zstat 2>/dev/null
 # there is no office and no shell pane.
 _office_shell_dir() {
   local s d
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   d=$(tmux list-panes -t "=$s" -F '#{@office_kind}|#{pane_current_path}' 2>/dev/null \
       | awk -F'|' '$1=="SHELL" {print $2; exit}')
   [[ -n $d && -d $d ]] && print -r -- "$d" || print -r -- "$PWD"
@@ -141,14 +152,16 @@ _office_editor_sync() {
   # And it has to be -t $TMUX_PANE: a bare `display -p` reports the ACTIVE pane,
   # which is whichever one you are looking at, never the one asking.
   [[ $(tmux display -p -t "$TMUX_PANE" '#{@office_kind}' 2>/dev/null) == SHELL ]] || return 0
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   local tty
   # NB: #{pane_current_command} says "zsh" here, because fzf is a child of the
   # loop rather than the pane's own process. Ask the pane's terminal instead.
   read -r p tty <<< "$(tmux list-panes -t "=$s" -F '#{pane_id} #{pane_tty} #{@office_kind}' 2>/dev/null \
       | awk '$3=="EDITOR" {print $1, $2; exit}')"
   [[ -n $p && -n $tty ]] || return 0
-  ps -t "${tty#/dev/}" -o comm= 2>/dev/null | grep -qx 'fzf' || return 0
+  # `-o comm=` is a bare name on macOS and a full path on some Linuxes, so match
+  # the tail: an exact 'fzf' silently killed the nudge wherever it printed a path.
+  ps -t "${tty#/dev/}" -o comm= 2>/dev/null | grep -qE '(^|/)fzf$' || return 0
   tmux send-keys -t "$p" C-r 2>/dev/null
   return 0
 }
@@ -179,7 +192,7 @@ _office_pick_file() {                  # [dir]
     # $seen holds the last directory it drew, because fzf bindings are separate
     # processes with nowhere else to keep it.
     local cwd=$_OFFICE_HOME/bin/office-cwd sess seen
-    sess=$(_office_sessname "$(_office_root "$PWD")")
+    sess=$(_office_here)
     seen=$(mktemp) && print -rn -- "$where" > $seen
     local list='fd --type f --hidden --follow --exclude .git --exclude node_modules --strip-cwd-prefix 2>/dev/null || find . -type f -not -path "*/.git/*" | sed "s|^\./||"'
     # NB: {} stands alone in the preview. fzf single-quotes the substitution, so
@@ -644,7 +657,7 @@ _office_new() {                        # [worktree-name] -> extra session
   label=$(basename "$dir")
   [[ $dir == "$root" ]] && label="$OFFICE_SESSION_LABEL" || label="$OFFICE_SESSION_LABEL · $label"
 
-  local s; s=$(_office_sessname "$root")
+  local s; s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
 
@@ -664,7 +677,7 @@ _office_new() {                        # [worktree-name] -> extra session
 _office_add_pane() {                   # <label> <command> [dir] [kind]
   local s newp dir=${3:-$PWD} kind=${4:-${1}}
   local -a slot
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
   if [[ $(_office_rank "$kind") == 9 ]] && (( $(_office_desk_count "$s") >= _OFFICE_MAX_DESKS )); then
@@ -684,7 +697,7 @@ _office_add_pane() {                   # <label> <command> [dir] [kind]
 # ONE verb for the three panes that come and go: on screen -> stash it;
 # stashed -> put it back; never existed -> make it.
 _office_toggle() {                     # <kind> <label> <command>
-  local s p root; root=$(_office_root "$PWD"); s=$(_office_sessname "$root")
+  local s p root; root=$(_office_root "$PWD"); s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
   p=$(_office_pane_of_kind "$s" "$1")
@@ -889,7 +902,7 @@ office() {
     sessions|desks)
       # the whole left column, in one key. Park them all, or bring them all back.
       local s p n=0
-      s=$(_office_sessname "$(_office_root "$PWD")")
+      s=$(_office_here)
       for p in ${(f)"$(tmux list-panes -t "=$s" -F '#{pane_id}|#{@office_kind}' 2>/dev/null | awk -F'|' '$2=="CLAUDE"{print $1}')"}; do
         [[ -n $p ]] || continue
         _office_hide "$p"; (( n++ ))
@@ -921,7 +934,7 @@ office() {
       tmux source-file "$_OFFICE_HOME/office.tmux.conf" 2>/dev/null
       print "updated. Reload your shells (or 'office off' and 'office on') to pick up the rest." ;;
     renumber)
-      _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;
+      _office_number "$(_office_here)" ;;
     sweep|stale)
       # `office sweep [hours]` — offices nobody has looked at in that long, and
       # everything inside them. Default 12h, so yesterday's office is fair game
@@ -948,11 +961,11 @@ office() {
       (( $#groups )) && _office_kill_groups ${(u)groups}
       print -P "swept ${#stale} office(s). %F{green}~${mb}MB%f back." ;;
     layout|fix|repair)
-      _office_relayout "$(_office_sessname "$(_office_root "$PWD")")"; print "layout rebuilt." ;;
+      _office_relayout "$(_office_here)"; print "layout rebuilt." ;;
     hide|collapse)
       _office_hide "${2:-$(tmux display -p '#{pane_id}')}" ;;
     show|restore|back)
-      local s k; s=$(_office_sessname "$(_office_root "$PWD")")
+      local s k; s=$(_office_here)
       k=${2:-$(tmux list-windows -t "=$_OFFICE_STASH" -F '#{window_name}' 2>/dev/null \
                | fzf --prompt='bring back> ' --height=40% --reverse)}
       [[ -n $k ]] || return
