@@ -1,28 +1,30 @@
 # agent-office
 
-One command for running several Claude Code sessions side by side in tmux.
+**Run several Claude Code sessions side by side, in one window, with one
+command.**
 
-```
-office on
+```sh
+office up
 ```
 
 ```
 ┌─────────────────────────────┬──────────────┐
 │ 1 CLAUDE                    │ 4 AGENT VIEW │  ⌃⇧a
-│                             ├──────────────┤
-│                             │ 5 SHELL      │  ⌃⇧s
+│                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2                  │ 6 EDITOR     │  ⌃⇧e
-│                             ├──────────────┤
-│                             │ 7 CHAT       │  ⌃⇧c
+│ 2 CLAUDE 2      ⌃⇧n adds    │ 5 SHELL      │  ⌃⇧s
+│                 one more    ├──────────────┤
+├─────────────────────────────┤ 6 EDITOR     │  ⌃⇧e
+│ 3 CLAUDE 3                  ├──────────────┤
+│                             │ 7 AGENT CHAT │  ⌃⇧c
 └─────────────────────────────┴──────────────┘
-      ⌃⇧n adds one                every one a toggle
+        your agents               you, watching
 ```
 
-The left column is nothing but Claude sessions, stacked and kept at equal
-height. The right strip is everything you only glance at, and each of its four
-panes toggles open and closed with one chord. Closing the window never kills
-anything: `office on` puts you back exactly where you were.
+Agents own the wide left column, stacked and kept at equal height. Everything
+you only glance at shares the narrow strip on the right, and each of those four
+panes opens and closes with one chord. Closing the window kills nothing:
+`office up` puts you back exactly where you were, panes, layout and all.
 
 ## Why
 
@@ -39,6 +41,7 @@ a tmux config. There is no daemon, no plugin manager, and no config file.
 ```sh
 git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
 ~/code/agent-office/install.sh
+exec zsh && office up
 ```
 
 The installer appends one line to your `.zshrc`, one line to your `.tmux.conf`,
@@ -59,19 +62,54 @@ source-file ~/code/agent-office/office.tmux.conf
 [`bat`](https://github.com/sharkdp/bat) for its file preview, iTerm2 for the
 Ctrl-Shift chords.
 
+## Three commands
+
+`office up`, `office break`, `office off`. Everything else has a key.
+
+Nothing accumulates behind your back, so there is no housekeeping to remember.
+Walking in reaps anything you parked and never came back to (12 hours by
+default, `OFFICE_REAP_HOURS`), and going home takes the whole tmux server with
+it. `office doctor` and `office clean` are there when you want to look, not
+because you have to.
+
+Panes you can see are never closed automatically. A script that kills an agent
+you were coming back to is worse than a full disk.
+
 ## The keys
 
 | chord | |
 |---|---|
 | `⌃⇧←↑↓→` | move between panes |
-| `⌃⇧n` | new Claude session, into the left column |
-| `⌃⇧t` | the same, but type the task first |
+| `⌃⇧n` | new Claude session, appended to the left column |
+| `⌃⇧t` | **type a task, get a session already working on it** |
 | `⌃⇧a` `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle agent view / shell / editor / chat |
 | `⌃⇧w` | close this pane, and get the memory back |
 | `⌃⇧x` | park this pane, still running, same key brings it back |
 | `⌃⇧z` | zoom this pane fullscreen and back |
 
-Every one of them also works as `Ctrl-Space` then the same letter.
+Every one also works as `Ctrl-Space` then the same letter, so nothing depends
+on the chord layer. The mouse works too: click a pane to focus it, drag a
+border to resize, and your layout is remembered.
+
+### Typing a task without knowing the chord
+
+`⌃⇧t` opens a prompt on the status bar. If you would rather not remember a
+chord, put a field there that is always visible and opens the same prompt when
+you click it:
+
+```tmux
+set -g status-left "#[range=user|task] task: ⌃⇧t #[norange]"
+set -g status-left-length 24
+bind -n MouseDown1Status if -F '#{==:#{mouse_status_range},user}' \
+  { command-prompt -p "task:" 'run-shell -b "zsh -ic \"cd \\\"#{pane_current_path}\\\" && office task \\\"%%\\\"\" >/dev/null 2>&1"' } \
+  { select-window -t= }
+```
+
+**That prompt takes text only.** You can paste text into it, but not an image
+and not a dragged file: it is a tmux input, and tmux has no idea what an image
+is. When a task needs one, open an empty session with `⌃⇧n` and paste into
+Claude Code's own prompt, which handles images and file drops. `⌃⇧t` is the
+fast path for a task you can say in a sentence.
 
 ### Why Ctrl-Shift needs iTerm2 for the letters
 
@@ -109,7 +147,7 @@ live ones for exactly that reason.
 
 | | |
 |---|---|
-| `office on` | walk in: open the office, start your always-on stack |
+| `office up` | walk in: open the office, start your always-on stack |
 | `office break` | step out: detach, everything keeps running |
 | `office off` | go home: quit every office, stop the stack, asks first |
 | `office <name>` | open another repo by fuzzy name |
@@ -126,19 +164,6 @@ live ones for exactly that reason.
 | `office help` | all of the above, with the diagram |
 
 The command is `office`. `ao` and `o` are aliases for it.
-
-## Three commands
-
-`office up`, `office break`, `office off`. Everything else has a key.
-
-Nothing accumulates behind your back, so there is no housekeeping to remember.
-Walking in reaps anything you parked and never came back to (12 hours by
-default, `OFFICE_REAP_HOURS`), and going home takes the whole tmux server with
-it. `office doctor` and `office clean` are there when you want to look, not
-because you have to.
-
-Panes you can see are never closed automatically. A script that kills an agent
-you were coming back to is worse than a full disk.
 
 ## Configuration
 
@@ -172,6 +197,27 @@ OFFICE_ALWAYS_ON_CHECK='pgrep -q my-server'
 OFFICE_ALWAYS_ON_START='my-stack up'
 OFFICE_ALWAYS_ON_STOP='my-stack down'
 ```
+
+## If something looks stuck
+
+Nothing here ever needs a reboot. In rough order of how often you will want them:
+
+| what you see | what to do |
+|---|---|
+| changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
+| agent view will not scroll or accept typing | `office fixagents` |
+| one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
+| changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
+| the chords do nothing at all | the iTerm profile is not your default. See below |
+| need an image in a task | `⌃⇧n`, then paste into Claude's own prompt |
+| everything is wedged | `office off`, then `office up`. Only the panes are lost |
+
+**A parked or toggled pane keeps its old process.** After changing what a pane
+*runs*, close it with `⌃⇧w` and reopen it rather than toggling it off and on.
+
+**If the chords do nothing:** iTerm2 > Settings > Profiles > "office" > Other
+Actions > Set as Default, then open a new window. Until then, `Ctrl-Space` and
+the same letter does everything the chords do.
 
 ## Details worth knowing
 
@@ -266,3 +312,9 @@ border redraw.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+---
+
+Built by [Hannes Reinsch](https://github.com/hannesreinsch) while building
+[Zyx](https://runzyx.xyz), an AI company runtime that lives inside the tools
+you already use. If `agent-office` is useful to you, that probably is too.
