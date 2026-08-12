@@ -252,15 +252,15 @@ _office_pick_file() {                  # [dir]
 }
 
 
-# --- the right strip: shell, chat, file editor, top to bottom ----------------
+# --- the right strip: chat, shell, file editor, top to bottom ----------------
 # The order is data, so a pane that is toggled off and back on lands where it
 # belongs instead of at the bottom.
 #
-# The agent you built sits in the middle, above the file editor: it is the pane
-# you actually talk to, and the file list is the one you reach for least. With no
-# chat wired up the strip is just the shell and the editor, which is the same
-# order with the middle row missing.
-typeset -gA _OFFICE_STRIP_ORDER=(SHELL 1 CHAT 2 EDITOR 3)
+# The agent you built is at the TOP: it is the pane you actually talk to, so it
+# gets the corner your eye goes to. Then the shell, then the file list, which is
+# the pane you reach for least. With no chat wired up the strip is the shell and
+# the editor, which is the same order with the top row missing.
+typeset -gA _OFFICE_STRIP_ORDER=(CHAT 1 SHELL 2 EDITOR 3)
 _office_rank() { print -r -- ${_OFFICE_STRIP_ORDER[$1]:-9} }
 
 # where a <kind> pane belongs in the strip: "<pane-id> <split-flag>", where the
@@ -405,7 +405,7 @@ _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
   out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
-  for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "CHAT:chat:c" "EDITOR:editor:e"; do
+  for pair in "CLAUDE:sessions:a" "CHAT:chat:c" "SHELL:shell:s" "EDITOR:editor:e"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
     out+="${sep}${tone}${name} ${key}#[default]"
@@ -633,9 +633,9 @@ _office_strip_title() {
 # and every one of those four is a toggle:
 #
 #   +-------------------------------+-----------+
-#   |  CLAUDE                       | SHELL     |  ^Ss
+#   |  CLAUDE                       | CHAT      |  ^Sc  (opens on demand)
 #   +-------------------------------+-----------+
-#   |  CLAUDE 2                     | CHAT      |  ^Sc  (opens on demand)
+#   |  CLAUDE 2                     | SHELL     |  ^Ss
 #   |                               +-----------+
 #   |                               | FILE ED.  |  ^Se
 #   +-------------------------------+-----------+
@@ -656,16 +656,19 @@ _office_open() {                       # <repo-path>
     # width once here is what leaves the sessions a full-width column.
     strip=$(tmux split-window -h -l ${OFFICE_STRIP_WIDTH}% -t "$main" -c "$dir" -P -F '#{pane_id}')
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
-    # then the chat, once you have given it something to run: the agent you
-    # built belongs directly under the shell, not at the bottom of the strip.
+    # then the chat, once you have given it something to run. -b: ABOVE the
+    # shell, at the top of the strip, because it is the pane you talk to.
     if (( OFFICE_CHAT_OPEN )); then
-      chat=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' "$OFFICE_CHAT_CMD")
+      chat=$(tmux split-window -v -b -t "$strip" -c "$dir" -P -F '#{pane_id}' "$OFFICE_CHAT_CMD")
       _office_label "$chat" "$OFFICE_CHAT_LABEL" CHAT
     fi
     # the file editor comes up too, at the bottom: everyone needs a file open
     # sooner or later, and it is the pane you reach for least.
-    editor=$(tmux split-window -v -t "${chat:-$strip}" -c "$dir" -P -F '#{pane_id}' "$_OFFICE_EDITOR_CMD")
+    editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' "$_OFFICE_EDITOR_CMD")
     _office_label "$editor" "FILE EDITOR" EDITOR
+    # three panes from three splits are 50/25/25. Even them, the same way every
+    # toggle does, so the default office looks deliberate.
+    _office_even_column "$s" right
     # the rest of the sessions, stacked down the left. Split the one just made,
     # not the tallest — otherwise desk 3 lands between 1 and 2 and the labels lie.
     local prev=$main
@@ -851,9 +854,9 @@ _office_help() {
 
   print -P "${g}WHAT YOU GET${r} ${d}— ONE window. Everything visible at once.${r}"
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
-  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}^Space s${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL${r}                      ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
   print -P "    ${d}├─────────────────────────────┼──────────────┤${r}"
-  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}^Space s${r}"
   print -P "    ${d}│${r}              ${d}one more${r}       ${d}├──────────────┤${r}"
   print -P "    ${d}│${r}                             ${d}│${r} ${g}FILE EDITOR${r}  ${d}│${r} ${g}^Space e${r}"
   print -P "    ${d}└─────────────────────────────┴──────────────┘${r}"
@@ -868,7 +871,7 @@ _office_help() {
   print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
   print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
   print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
-  print -P "  ${g}s${r}    toggle the SHELL         ${g}c${r}  toggle the CHAT"
+  print -P "  ${g}c${r}    toggle the CHAT          ${g}s${r}  toggle the SHELL"
   print -P "  ${g}e${r}    toggle the FILE EDITOR   ${g}a${r}  park/restore ALL sessions"
   print -P "  ${g}w${r} ${d}or${r} ${g}q${r}  CLOSE this pane     ${g}x${r}  park it, still running"
   print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"

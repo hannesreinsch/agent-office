@@ -11,10 +11,10 @@ office on
 
 ```
 ┌─────────────────────────────┬──────────────┐
-│ 1 CLAUDE                    │ 4 SHELL      │  ^Space s
+│ 1 CLAUDE                    │ 4 AGENT CHAT │  ^Space c
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2   ^Space n adds  │ 5 AGENT CHAT │  ^Space c
+│ 2 CLAUDE 2   ^Space n adds  │ 5 SHELL      │  ^Space s
 │                 one more    │              │
 ├─────────────────────────────┼──────────────┤
 │ 3 CLAUDE 3                  │ 6 FILE EDITOR│  ^Space e
@@ -154,7 +154,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | | |
 |---|---|
 | `n` | new session |
-| `s` `c` `e` | toggle shell / chat / file editor. On a pane that quit whatever it was running, the same key restarts it |
+| `c` `s` `e` | toggle chat / shell / file editor. On a pane that quit whatever it was running, the same key restarts it |
 | `a` | park every session, bring them all back, or open one if there are none |
 | `w` or `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
