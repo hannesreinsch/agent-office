@@ -1,0 +1,227 @@
+# agent-office
+
+One command for running several Claude Code sessions side by side in tmux.
+
+```
+office on
+```
+
+```
+┌─────────────────────────────┬──────────────┐
+│ 1 CLAUDE                    │ 4 AGENT VIEW │  ⌃⇧a
+│                             ├──────────────┤
+│                             │ 5 SHELL      │  ⌃⇧s
+├─────────────────────────────┼──────────────┤
+│ 2 CLAUDE 2                  │ 6 EDITOR     │  ⌃⇧e
+│                             ├──────────────┤
+│                             │ 7 CHAT       │  ⌃⇧c
+└─────────────────────────────┴──────────────┘
+      ⌃⇧n adds one                every one a toggle
+```
+
+The left column is nothing but Claude sessions, stacked and kept at equal
+height. The right strip is everything you only glance at, and each of its four
+panes toggles open and closed with one chord. Closing the window never kills
+anything: `office on` puts you back exactly where you were.
+
+## Why
+
+Running three or four coding agents at once is normal now, and the tooling for
+it is not. You end up with a pile of terminal tabs, no idea which one is
+waiting on you, and a layout you rebuild by hand every morning.
+
+`office` is one command that opens the whole thing, one chord scheme to move
+around it, and no state you have to maintain. It is about 600 lines of zsh and
+a tmux config. There is no daemon, no plugin manager, and no config file.
+
+## Install
+
+```sh
+git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
+~/code/agent-office/install.sh
+```
+
+The installer appends one line to your `.zshrc`, one line to your `.tmux.conf`,
+and writes an iTerm2 profile if you have iTerm2. It is idempotent, so re-run it
+after a `git pull`. To do it by hand instead:
+
+```sh
+# .zshrc
+source ~/code/agent-office/office.zsh
+# .tmux.conf
+source-file ~/code/agent-office/office.tmux.conf
+```
+
+**Requires:** `tmux` 3.4 or newer, `zsh`, `git`, [`fzf`](https://github.com/junegunn/fzf),
+[`fd`](https://github.com/sharkdp/fd), and of course
+[Claude Code](https://claude.com/claude-code).
+**Optional:** [`micro`](https://micro-editor.github.io) for the editor pane,
+[`bat`](https://github.com/sharkdp/bat) for its file preview, iTerm2 for the
+Ctrl-Shift chords.
+
+## The keys
+
+| chord | |
+|---|---|
+| `⌃⇧←↑↓→` | move between panes |
+| `⌃⇧n` | new Claude session, into the left column |
+| `⌃⇧a` `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle agent view / shell / editor / chat |
+| `⌃⇧w` | close this pane, and get the memory back |
+| `⌃⇧x` | park this pane, still running, same key brings it back |
+| `⌃⇧z` | zoom this pane fullscreen and back |
+
+Every one of them also works as `Ctrl-Space` then the same letter.
+
+### Why Ctrl-Shift needs iTerm2 for the letters
+
+A terminal cannot encode Ctrl+Shift for a letter. `Ctrl+Z` and `Ctrl+Shift+Z`
+arrive as the same byte, `0x1A`, because Shift is simply not part of the wire
+format for control characters. Arrows are the exception: they travel as
+`CSI 1;6 A-D`, with the modifier as a number.
+
+So the letter chords are made real one level lower: an iTerm2 dynamic profile
+rewrites each one to `ESC`+letter, and tmux reads that as `M-<letter>`. That is
+all `iterm/office-keys.json` does. Without iTerm2 you lose nothing except the
+one-key form, because the `Ctrl-Space` prefix covers every command.
+
+Two things the installer handles that are easy to get wrong by hand:
+
+- A dynamic profile **replaces** the parent profile's keyboard map instead of
+  merging into it. Your existing entries (Natural Text Editing's option-arrow
+  word jump, option-delete, cmd-arrow line ends) vanish silently. The installer
+  copies them over first.
+- iTerm watches the DynamicProfiles **folder**. A symlink pointing out of it
+  will not trigger a reload when you edit the target, so the file is written
+  into the folder directly.
+
+## Park versus close
+
+`⌃⇧x` parks a pane: it is moved to a hidden tmux session and keeps running.
+Its own toggle brings it back, in its proper place, or `office show` picks from
+everything parked.
+
+`⌃⇧w` closes a pane for good. Parking is not free, a parked Claude session
+still holds its 400 to 700MB, and `office doctor` lists parked panes alongside
+live ones for exactly that reason.
+
+## Commands
+
+| | |
+|---|---|
+| `office on` | walk in: open the office, start your always-on stack |
+| `office break` | step out: detach, everything keeps running |
+| `office off` | go home: quit every office, stop the stack, asks first |
+| `office <name>` | open another repo by fuzzy name |
+| `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
+| `office desk` | one more Claude session |
+| `office task <what>` | one more Claude session, already working on `<what>` |
+| `office new [wt]` | one more Claude session in its own git worktree |
+| `office chat` `shell` `agents` `edit` | toggle a right-strip pane |
+| `office hide` / `office show` | park the current pane / bring one back |
+| `office doctor` | what is running and what it costs in RAM, read-only |
+| `office clean` | pick panes to close, heaviest first |
+| `office clean --idle [h]` | no picker: close anything idle over `h` hours |
+| `office fixagents` | restart the agent view when it stops responding |
+| `office help` | all of the above, with the diagram |
+
+The command is `office`. `ao` and `o` are aliases for it.
+
+## Configuration
+
+Environment variables, set before sourcing `office.zsh`. All optional.
+
+| variable | default | |
+|---|---|---|
+| `OFFICE_DEFAULT` | *(empty)* | repo that bare `office on` opens |
+| `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
+| `OFFICE_DEFAULT_DESKS` | `1` | Claude sessions opened at startup |
+| `OFFICE_CHAT_LABEL` | `CHAT` | name on the chat pane's border |
+| `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
+| `OFFICE_ALWAYS_ON_CHECK` | `false` | exits 0 when your stack is up |
+| `OFFICE_ALWAYS_ON_START` | *(empty)* | run by `office on` |
+| `OFFICE_ALWAYS_ON_STOP` | *(empty)* | run by `office off` |
+
+The chat pane is the interesting one. Point `OFFICE_CHAT_CMD` at whatever
+talking to your agent looks like for you, and that becomes the pane:
+
+```sh
+OFFICE_CHAT_LABEL="ASK"
+OFFICE_CHAT_CMD="zsh -ic my-agent-chat"
+```
+
+The always-on trio is for anything that should come up when you sit down and go
+down when you leave, a local server, a tunnel, a sync daemon:
+
+```sh
+OFFICE_ALWAYS_ON_CHECK='pgrep -q my-server'
+OFFICE_ALWAYS_ON_START='my-stack up'
+OFFICE_ALWAYS_ON_STOP='my-stack down'
+```
+
+## Details worth knowing
+
+**Pane numbers are ours, not tmux's.** tmux numbers panes by their position in
+the layout tree, which moving a pane leaves in an order your eye disagrees with
+(you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
+they always read down the left column and then down the right strip.
+
+**Pane labels are derived, not trusted.** Claude Code can move a conversation
+to the background and swap which pane displays the agent list. A label pinned
+at startup starts lying, and you steer by it and wonder why the arrows do
+nothing. The border reads `#{pane_title}`, which is what the pane shows right
+now.
+
+**Your layout is remembered.** Drag the borders where you want them. A detach
+keeps the layout because the tmux server is still alive; `office off` kills the
+server, which is the one moment it would be lost, so that is where it is saved
+to `~/.local/state/office/`.
+
+**Keybinding output is silenced on purpose.** Stray output from a `run-shell`
+binding makes tmux force the active pane into view-mode, where every Ctrl-Shift
+chord stops working and the pane looks frozen. Messages go to the status line
+instead.
+
+**What it cannot do:** a session you dispatch from inside the agent view
+belongs to Claude Code's daemon, not to a terminal, and cannot be attached to a
+second one. So it can never become a pane. `office task <what>` is the door
+that does work: it opens a Claude session as a pane with the task already
+given.
+
+## Safety
+
+No network calls anywhere in the code. Nothing is uploaded, phoned home or
+fetched at runtime, and there are no dependencies to install beyond the tools
+listed above.
+
+**What the installer touches**, and nothing else:
+
+- appends one `source` line to your `.zshrc` and one to your `.tmux.conf`,
+  after checking they are not already there
+- reads your iTerm2 preferences, in order to copy your existing key mappings
+  into the new profile so they survive (see above)
+- writes `office-keys.json` into iTerm2's DynamicProfiles folder
+
+**What can destroy something.** Every destructive action is a tmux operation,
+so the blast radius is panes and sessions, never files:
+
+| | |
+|---|---|
+| `⌃⇧w`, `prefix x` | close a pane, after a y/n confirmation |
+| `prefix X` | close the session, after a y/n confirmation |
+| `office off` | quits every office, lists what it will do and asks first |
+| `office clean` | you pick the panes, Esc closes nothing |
+| `office clean --idle` | **no confirmation, by design.** It is the unattended form |
+| `office fixagents` | restarts the agent view's process, losing nothing else |
+
+The three `OFFICE_ALWAYS_ON_*` variables are evaluated as shell, because that
+is what they are for. They come from your own config, so treat them the way you
+treat any line in your `.zshrc`.
+
+Pane labels are stripped of `#` before being stored. tmux renders them through
+its format engine, where `#(...)` executes a shell command, so a git branch or
+an `office task` description containing one would otherwise run on every
+border redraw.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -1,0 +1,170 @@
+{
+  "Profiles": [
+    {
+      "Name": "office",
+      "Guid": "office-keys",
+      "Keyboard Map": {
+        "0xf702-0x60000": {
+          "Action": 10,
+          "Text": "[1;6D"
+        },
+        "0xf702-0x60000-0x7b": {
+          "Action": 10,
+          "Text": "[1;6D"
+        },
+        "0xf703-0x60000": {
+          "Action": 10,
+          "Text": "[1;6C"
+        },
+        "0xf703-0x60000-0x7c": {
+          "Action": 10,
+          "Text": "[1;6C"
+        },
+        "0xf700-0x60000": {
+          "Action": 10,
+          "Text": "[1;6A"
+        },
+        "0xf700-0x60000-0x7e": {
+          "Action": 10,
+          "Text": "[1;6A"
+        },
+        "0xf701-0x60000": {
+          "Action": 10,
+          "Text": "[1;6B"
+        },
+        "0xf701-0x60000-0x7d": {
+          "Action": 10,
+          "Text": "[1;6B"
+        },
+        "0x6e-0x60000": {
+          "Action": 10,
+          "Text": "n"
+        },
+        "0x6e-0x60000-0x2d": {
+          "Action": 10,
+          "Text": "n"
+        },
+        "0x4e-0x60000": {
+          "Action": 10,
+          "Text": "n"
+        },
+        "0x4e-0x60000-0x2d": {
+          "Action": 10,
+          "Text": "n"
+        },
+        "0x61-0x60000": {
+          "Action": 10,
+          "Text": "a"
+        },
+        "0x61-0x60000-0x0": {
+          "Action": 10,
+          "Text": "a"
+        },
+        "0x41-0x60000": {
+          "Action": 10,
+          "Text": "a"
+        },
+        "0x41-0x60000-0x0": {
+          "Action": 10,
+          "Text": "a"
+        },
+        "0x73-0x60000": {
+          "Action": 10,
+          "Text": "s"
+        },
+        "0x73-0x60000-0x1": {
+          "Action": 10,
+          "Text": "s"
+        },
+        "0x53-0x60000": {
+          "Action": 10,
+          "Text": "s"
+        },
+        "0x53-0x60000-0x1": {
+          "Action": 10,
+          "Text": "s"
+        },
+        "0x63-0x60000": {
+          "Action": 10,
+          "Text": "c"
+        },
+        "0x63-0x60000-0x8": {
+          "Action": 10,
+          "Text": "c"
+        },
+        "0x43-0x60000": {
+          "Action": 10,
+          "Text": "c"
+        },
+        "0x43-0x60000-0x8": {
+          "Action": 10,
+          "Text": "c"
+        },
+        "0x65-0x60000": {
+          "Action": 10,
+          "Text": "e"
+        },
+        "0x65-0x60000-0xe": {
+          "Action": 10,
+          "Text": "e"
+        },
+        "0x45-0x60000": {
+          "Action": 10,
+          "Text": "e"
+        },
+        "0x45-0x60000-0xe": {
+          "Action": 10,
+          "Text": "e"
+        },
+        "0x77-0x60000": {
+          "Action": 10,
+          "Text": "w"
+        },
+        "0x77-0x60000-0xd": {
+          "Action": 10,
+          "Text": "w"
+        },
+        "0x57-0x60000": {
+          "Action": 10,
+          "Text": "w"
+        },
+        "0x57-0x60000-0xd": {
+          "Action": 10,
+          "Text": "w"
+        },
+        "0x78-0x60000": {
+          "Action": 10,
+          "Text": "x"
+        },
+        "0x78-0x60000-0x7": {
+          "Action": 10,
+          "Text": "x"
+        },
+        "0x58-0x60000": {
+          "Action": 10,
+          "Text": "x"
+        },
+        "0x58-0x60000-0x7": {
+          "Action": 10,
+          "Text": "x"
+        },
+        "0x7a-0x60000": {
+          "Action": 10,
+          "Text": "z"
+        },
+        "0x7a-0x60000-0x6": {
+          "Action": 10,
+          "Text": "z"
+        },
+        "0x5a-0x60000": {
+          "Action": 10,
+          "Text": "z"
+        },
+        "0x5a-0x60000-0x6": {
+          "Action": 10,
+          "Text": "z"
+        }
+      }
+    }
+  ]
+}
