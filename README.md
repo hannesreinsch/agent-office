@@ -134,6 +134,28 @@ Two things the installer handles that are easy to get wrong by hand:
   will not trigger a reload when you edit the target, so the file is written
   into the folder directly.
 
+## Two ways to start a session, and what each gives you
+
+**`⌃⇧n`, from the office.** A Claude session as a pane in the left column,
+focused, with its own input. Images paste, files drop, arrows work. Use this
+when you want to work with the agent.
+
+**"describe a task for a new session", from the agent view.** A background
+agent. It runs, it shows up in the agent view's list, and you talk to it there:
+`enter` opens it, `space` replies. Use this when you want to fire something off
+and check on it later.
+
+Both are supported and neither breaks the other. The one thing that cannot
+happen is moving between them: a background agent can never become a pane,
+because Claude Code refuses a second attachment to a running one (see below).
+
+One asymmetry worth knowing: **the agent view lists background agents, not your
+panes.** `claude agents --json` reports both, but the view shows the background
+ones. So a session you start with `⌃⇧n` will not appear in that list. It is not
+stale, it is scoped: you can watch the spinner tick in an unfocused agent view
+and see the counts move. Your panes are visible as panes, with numbers and
+labels on their borders, which is the point of having them.
+
 ## Park versus close
 
 `⌃⇧x` parks a pane: it is moved to a hidden tmux session and keeps running.

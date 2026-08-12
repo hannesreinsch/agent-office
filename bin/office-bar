@@ -1,0 +1,29 @@
+#!/bin/zsh
+# office-bar — the keys, on the status line, with the closed ones lit up.
+#
+#   set -g status-left "#(/path/to/office-bar '#{session_name}')"
+#
+# A pane's own border carries the chord that toggles it, which is no help at all
+# once the pane is closed and the border is gone with it. So the bar keeps the
+# whole set, and dims the ones you can already see. What is bright is what is
+# missing.
+#
+# tmux calls this every status-interval, so it does nothing but read tmux.
+emulate -L zsh
+s=${1:-}
+[[ -n $s ]] || exit 0
+
+DIM=$'#[fg=#4e505a]'      # open: you can see it, no need to shout
+LIT=$'#[fg=#9a9ca6]'      # closed: this is the one you cannot find
+KEY=$'#[fg=#6a6c77]'
+R=$'#[default]'
+
+open=" $(tmux list-panes -t "=$s" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
+
+out="${KEY}⌃⇧n${R}${LIT} new${R}"
+for pair in "AGENT:⌃⇧a:agent" "SHELL:⌃⇧s:shell" "EDITOR:⌃⇧e:editor" "CHAT:⌃⇧c:chat"; do
+  kind=${pair%%:*}; rest=${pair#*:}; key=${rest%%:*}; name=${rest#*:}
+  if [[ $open == *" $kind "* ]]; then tone=$DIM; else tone=$LIT; fi
+  out+="${KEY} ${key}${R}${tone} ${name}${R}"
+done
+print -rn -- "$out"
