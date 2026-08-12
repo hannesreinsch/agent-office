@@ -35,6 +35,9 @@ OFFICE_SESSION_CMD="${OFFICE_SESSION_CMD:-claude}"
 OFFICE_SESSION_LABEL="${OFFICE_SESSION_LABEL:-CLAUDE}"
 # Where `office new` looks for git worktrees. Claude Code's default location.
 OFFICE_WORKTREE_DIR="${OFFICE_WORKTREE_DIR:-.claude/worktrees}"
+# How much of the window the right strip takes. Wide enough that a chat pane
+# does not wrap every sentence, narrow enough that the agents keep the room.
+OFFICE_STRIP_WIDTH="${OFFICE_STRIP_WIDTH:-32}"
 OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
 OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-exec $SHELL}"
 
@@ -203,7 +206,7 @@ _office_relayout() {                   # <session>
   for id in $all; do tmux break-pane -d -s "$id" -t "=$_OFFICE_STASH:" -n "relayout-${id#\%}" 2>/dev/null; done
   # one pane left, so this split is the ROOT one: it is what makes two columns
   w=$(tmux list-windows -t "=$s" -F '#{window_width}' 2>/dev/null | head -1)
-  tmux join-pane -h -l $(( w * 28 / 100 )) -s "${strip[1]}" -t "$keep" 2>/dev/null
+  tmux join-pane -h -l $(( w * OFFICE_STRIP_WIDTH / 100 )) -s "${strip[1]}" -t "$keep" 2>/dev/null
   prev=$keep
   for id in ${desks[2,-1]}; do tmux join-pane -v -s "$id" -t "$prev" 2>/dev/null && prev=$id; done
   prev=${strip[1]}
@@ -234,7 +237,7 @@ _office_place() {                      # <session> <kind> -> "<pane> <flags...>"
     # get a root-level split back.
     print -r -- "$(_office_desk_pane "$s") -v"
   else
-    print -r -- "$(_office_desk_pane "$s") -h -l 28%"
+    print -r -- "$(_office_desk_pane "$s") -h -l ${OFFICE_STRIP_WIDTH}%"
   fi
 }
 
@@ -456,9 +459,9 @@ _office_open() {                       # <repo-path>
     local main editor strip n prev
     main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
     _office_label "$main" "$OFFICE_SESSION_LABEL" CLAUDE
-    # the right strip first, at 28% — these are glance surfaces, and taking their
+    # the right strip first, at OFFICE_STRIP_WIDTH: these are glance surfaces, and
     # width once here is what leaves the sessions a full-width column.
-    strip=$(tmux split-window -h -l 28% -t "$main" -c "$dir" -P -F '#{pane_id}')
+    strip=$(tmux split-window -h -l ${OFFICE_STRIP_WIDTH}% -t "$main" -c "$dir" -P -F '#{pane_id}')
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
     # The editor comes up too: everyone needs a file open sooner or later.
     # CHAT does NOT, because a chat pane is only worth the space once you have

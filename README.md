@@ -275,6 +275,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees |
 | `OFFICE_EDITOR` | `$EDITOR`, else micro/nano/vi | what the editor pane opens files in. Set it to `micro` if `$EDITOR` is vim and you would rather it were not |
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
+| `OFFICE_STRIP_WIDTH` | `32` | percent of the window the right strip takes |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
