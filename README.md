@@ -41,11 +41,14 @@ a tmux config. There is no daemon, no plugin manager, and no config file.
 ### macOS
 
 ```sh
-brew install tmux fzf fd micro bat
-git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
-~/code/agent-office/install.sh
+brew install tmux fzf fd micro bat          # needs Homebrew: https://brew.sh
+git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office
+~/agent-office/install.sh
 exec zsh && office on
 ```
+
+Clone it wherever you like; the installer works out its own path. Examples in
+this README use `~/agent-office`.
 
 The installer adds one line to your `.zshrc`, one to your `.tmux.conf`, and if
 you use iTerm2 it writes a profile carrying the one-key chords. It prints the
@@ -70,10 +73,14 @@ Then, inside WSL:
 ```sh
 sudo apt update && sudo apt install -y tmux zsh git fzf fd-find micro bat
 mkdir -p ~/.local/bin && ln -sf "$(which fdfind)" ~/.local/bin/fd   # Debian calls it fdfind
-git clone https://github.com/hannesreinsch/agent-office.git ~/code/agent-office
-~/code/agent-office/install.sh
+git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office
+~/agent-office/install.sh
 exec zsh && office on
 ```
+
+That is Ubuntu or Debian, which is what `wsl --install` gives you. On Fedora or
+Arch swap in `dnf` or `pacman`; the package names are the same and `fd` is not
+renamed there.
 
 The installer detects WSL and points at `terminals/windows-terminal-keys.json`.
 Paste those entries into Windows Terminal (Settings, then "open JSON file") for
@@ -85,6 +92,12 @@ everything.
 The chords are ordinary escape sequences. Make `Ctrl-Shift+<letter>` send `ESC`
 followed by that letter, and `Ctrl-Shift+<arrow>` send `CSI 1;6 A-D`. The files
 in `terminals/` and `iterm/` are worked examples of exactly that.
+
+**A note if you do not use zsh.** `office` is a zsh function, so zsh has to be
+installed, but it does not have to be your login shell: run `zsh` and source it
+there, or add `source /path/to/office.zsh` to a zsh startup file and start your
+day with `zsh -ic 'office on'`. Everything inside the panes is your normal
+shell.
 
 **Requires** `tmux` 3.4+, `zsh`, `git`, [`fzf`](https://github.com/junegunn/fzf),
 [`fd`](https://github.com/sharkdp/fd), and an agent CLI such as
@@ -255,6 +268,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_SESSION_CMD` | `claude` | **what a session is.** Any agent CLI |
 | `OFFICE_SESSION_LABEL` | `CLAUDE` | what its panes are called |
 | `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees |
+| `OFFICE_EDITOR` | `$EDITOR`, else micro/nano/vi | what the editor pane opens files in |
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
@@ -359,8 +373,8 @@ pasting images and dropping files.
 installation. If you would rather take mine, it is one more line:
 
 ```tmux
-source-file ~/code/agent-office/office.tmux.conf              # required
-source-file ~/code/agent-office/theme/office-theme.tmux.conf  # optional
+source-file ~/agent-office/office.tmux.conf              # required
+source-file ~/agent-office/theme/office-theme.tmux.conf  # optional
 ```
 
 Source it second, because it overrides the pane border. Monochrome by

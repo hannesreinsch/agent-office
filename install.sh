@@ -8,6 +8,10 @@ warn() { print -P "%F{yellow} !%f  $*" }
 
 # --- 1. shell ----------------------------------------------------------------
 RC=${ZDOTDIR:-$HOME}/.zshrc
+# office is a zsh function. zsh does not have to be your login shell, but it does
+# have to be installed, and this is the file it reads.
+command -v zsh >/dev/null || { print -u2 " !  zsh is not installed. Install it first."; exit 1 }
+[[ ${SHELL:t} == zsh ]] || warn "your login shell is ${SHELL:t}, not zsh. Start the office with: zsh -ic 'office on'"
 LINE="source $HERE/office.zsh"
 if grep -qF "$LINE" $RC 2>/dev/null; then
   say "already sourced from $RC"
