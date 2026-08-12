@@ -1,7 +1,8 @@
 # agent-office
 
 **Build agents with agents, and talk to what you built, in one window.**
-Several coding-agent sessions side by side, plus a chat pane wired to your own
+Several coding-agent sessions side by side, each in its own git worktree, plus a
+shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 ```sh
@@ -13,10 +14,10 @@ office on
 │ 1 CLAUDE                    │ 4 SHELL      │  ^Space s
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2   ^Space n adds  │ 5 EDITOR     │  ^Space e
+│ 2 CLAUDE 2   ^Space n adds  │ 5 AGENT CHAT │  ^Space c
 │                 one more    │              │
 ├─────────────────────────────┼──────────────┤
-│ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ^Space c
+│ 3 CLAUDE 3                  │ 6 FILE EDITOR│  ^Space e
 │                             │              │
 └─────────────────────────────┴──────────────┘
    the agents that build it       the agent
@@ -153,7 +154,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | | |
 |---|---|
 | `n` | new session |
-| `s` `e` `c` | toggle shell / editor / chat |
+| `s` `c` `e` | toggle shell / chat / file editor. On a pane that quit whatever it was running, the same key restarts it |
 | `a` | park every session, bring them all back, or open one if there are none |
 | `w` or `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
@@ -236,12 +237,14 @@ live ones for exactly that reason.
 | `office off` | go home: quit every office, stop the stack, asks first |
 | `office <name>` | open another repo by fuzzy name |
 | `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
+| `office solo` | like `on`, but starts nothing: the panes and nothing in them |
 | `office desk` | one more session |
 | `office task <what>` | one more session, already working on `<what>` |
 | `office new [wt]` | one more session in its own git worktree |
 | `office chat` `shell` `edit` | toggle a right-strip pane |
 | `office sessions` | park or restore the whole left column |
 | `office renumber` | renumber the panes (the tmux hooks call this) |
+| `office layout` | rebuild the layout when a pane ends up somewhere wrong |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
@@ -345,11 +348,15 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | the chords do nothing at all | the iTerm profile is not your default. See below |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
 | the columns look scrambled | `office layout` |
+| the file editor pane is just a shell prompt | you left the file list. `Ctrl-Space e` rebuilds it |
+| the chat pane quit and left a prompt | `Ctrl-Space c` restarts it |
 | a pane went red with `returned 1` | it is in a mode. Any office chord now cancels it, or press `q` |
 | everything is wedged | `office off`, then `office on`. That resets the layout completely |
 
 **A parked or toggled pane keeps its old process.** After changing what a pane
 *runs*, close it with `Ctrl-Space w` and reopen it rather than toggling it off and on.
+The one exception is a pane that has *stopped* running it: its own key restarts it
+instead of hiding it, so there is no way to end up with a pane you cannot revive.
 
 **If the chords do nothing:** iTerm2 > Settings > Profiles > "office" > Other
 Actions > Set as Default, then open a new window. Until then, `Ctrl-Space` and
@@ -359,7 +366,7 @@ the same letter does everything the chords do.
 
 **Pane numbers are ours, not tmux's.** tmux numbers panes by their position in
 the layout tree, which moving a pane leaves in an order your eye disagrees with
-(you get 4 = EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
+(you get 4 = FILE EDITOR, 6 = AGENT). `office` numbers them from actual geometry, so
 they always read down the left column and then down the right strip.
 
 **Pane borders stay quiet.** A border shows the pane's number, what it is, the

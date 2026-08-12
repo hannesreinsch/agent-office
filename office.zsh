@@ -36,6 +36,11 @@ OFFICE_DEFAULT="${OFFICE_DEFAULT:-}"        # repo `office on` opens; empty = th
 # chat command and it becomes that. Left as a plain shell by default.
 # What a session IS. Point it at any agent CLI and the left column becomes that.
 OFFICE_SESSION_CMD="${OFFICE_SESSION_CMD:-claude}"
+# How every desk ends. Quitting the agent leaves the pane on a prompt — nothing
+# is lost and the pane is yours — but a border still labelled CLAUDE over a bare
+# shell reads like a broken window to anyone new. One line says otherwise.
+# printf, not print: this string is run by tmux's default shell, not by zsh.
+_OFFICE_DESK_END="; printf '\n  session ended — the pane is a shell now. Ctrl-Space n opens a new one.\n'; exec zsh"
 OFFICE_SESSION_LABEL="${OFFICE_SESSION_LABEL:-CLAUDE}"
 # Where `office new` looks for git worktrees. Claude Code's default location.
 OFFICE_WORKTREE_DIR="${OFFICE_WORKTREE_DIR:-.claude/worktrees}"
@@ -54,6 +59,17 @@ OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
 # ---------------------------------------------------------------- internals --
 _office_sessname() { basename "$1" | tr ' .:' '___'; }
 _office_root()     { git -C "${1:-$PWD}" rev-parse --show-toplevel 2>/dev/null || print -r -- "${1:-$PWD}"; }
+
+# WHICH office this pane is in. Ask tmux, never $PWD: deriving it from the
+# directory meant one `cd` out of the repo (or into a different one) renamed the
+# office out from under every helper — the editor stopped following the shell,
+# and `office n`/`layout`/`show` quietly targeted a session that did not exist.
+# Outside tmux there is no pane to ask, so the directory is still the answer.
+_office_here() {
+  local s
+  [[ -n $TMUX ]] && s=$(tmux display -p -t "${TMUX_PANE:-}" '#{session_name}' 2>/dev/null)
+  [[ -n $s ]] && print -r -- "$s" || _office_sessname "$(_office_root "$PWD")"
+}
 
 # every git repo under $CODE_ROOT, agent worktrees excluded
 _office_repos() {
@@ -108,7 +124,11 @@ _office_desk_count() {
 _office_editor() {
   local e
   for e in $OFFICE_EDITOR $EDITOR micro nano vi; do
-    [[ -n $e ]] && command -v ${${(z)e}[1]} >/dev/null && { print -r -- "$e"; return }
+    # ${e%% *}, not ${${(z)e}[1]}: a nested substitution that produced ONE word
+    # is a scalar, so [1] took the first CHARACTER. `EDITOR=micro` asked for `m`,
+    # missed, and fell through to nano — which on macOS is a symlink to pico, no
+    # colours, no mouse. `${e%% *}` keeps the point of it ("code -w" -> code).
+    [[ -n $e ]] && command -v ${e%% *} >/dev/null && { print -r -- "$e"; return }
   done
   print -r -- vi
 }
@@ -122,7 +142,7 @@ zmodload -F zsh/stat b:zstat 2>/dev/null
 # there is no office and no shell pane.
 _office_shell_dir() {
   local s d
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   d=$(tmux list-panes -t "=$s" -F '#{@office_kind}|#{pane_current_path}' 2>/dev/null \
       | awk -F'|' '$1=="SHELL" {print $2; exit}')
   [[ -n $d && -d $d ]] && print -r -- "$d" || print -r -- "$PWD"
@@ -141,14 +161,16 @@ _office_editor_sync() {
   # And it has to be -t $TMUX_PANE: a bare `display -p` reports the ACTIVE pane,
   # which is whichever one you are looking at, never the one asking.
   [[ $(tmux display -p -t "$TMUX_PANE" '#{@office_kind}' 2>/dev/null) == SHELL ]] || return 0
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   local tty
   # NB: #{pane_current_command} says "zsh" here, because fzf is a child of the
   # loop rather than the pane's own process. Ask the pane's terminal instead.
   read -r p tty <<< "$(tmux list-panes -t "=$s" -F '#{pane_id} #{pane_tty} #{@office_kind}' 2>/dev/null \
       | awk '$3=="EDITOR" {print $1, $2; exit}')"
   [[ -n $p && -n $tty ]] || return 0
-  ps -t "${tty#/dev/}" -o comm= 2>/dev/null | grep -qx 'fzf' || return 0
+  # `-o comm=` is a bare name on macOS and a full path on some Linuxes, so match
+  # the tail: an exact 'fzf' silently killed the nudge wherever it printed a path.
+  ps -t "${tty#/dev/}" -o comm= 2>/dev/null | grep -qE '(^|/)fzf$' || return 0
   tmux send-keys -t "$p" C-r 2>/dev/null
   return 0
 }
@@ -158,6 +180,24 @@ _office_editor_sync() {
 if [[ -n $TMUX && -o interactive ]]; then
   autoload -Uz add-zsh-hook 2>/dev/null && add-zsh-hook chpwd _office_editor_sync
 fi
+
+# What the FILE EDITOR pane runs. ONE definition: it is spawned from
+# _office_open and from `office edit`, and it grew a way back.
+#
+# Leaving the list (Esc, or quitting the editor twice) used to `exec zsh` and
+# leave a bare prompt behind a border still labelled FILE EDITOR, which no key
+# could revive: `office edit` saw a pane of that kind, hid it, and gave it back
+# just as empty. The pane now says so on its way out, and marks itself dead so
+# its own key rebuilds it.
+_office_editor_loop() {
+  while _office_pick_file; do :; done
+  # -t $TMUX_PANE, never a bare `set -p`: that writes to whichever pane you are
+  # LOOKING at, which is how a CLAUDE pane got marked dead instead of this one.
+  tmux set -p -t "$TMUX_PANE" @office_live 0 2>/dev/null
+  print -P "\n  %F{yellow}the file list is closed.%f  Ctrl-Space e brings it back."
+  exec zsh
+}
+_OFFICE_EDITOR_CMD='zsh -ic _office_editor_loop'
 
 _office_pick_file() {                  # [dir]
   local target=${1:-} where
@@ -179,7 +219,7 @@ _office_pick_file() {                  # [dir]
     # $seen holds the last directory it drew, because fzf bindings are separate
     # processes with nowhere else to keep it.
     local cwd=$_OFFICE_HOME/bin/office-cwd sess seen
-    sess=$(_office_sessname "$(_office_root "$PWD")")
+    sess=$(_office_here)
     seen=$(mktemp) && print -rn -- "$where" > $seen
     local list='fd --type f --hidden --follow --exclude .git --exclude node_modules --strip-cwd-prefix 2>/dev/null || find . -type f -not -path "*/.git/*" | sed "s|^\./||"'
     # NB: {} stands alone in the preview. fzf single-quotes the substitution, so
@@ -200,7 +240,10 @@ _office_pick_file() {                  # [dir]
   # Put the keys where you need them: in the editor, while the file is open.
   # Nobody remembers how to get back out of an editor they use twice a week.
   if [[ ${ed[1]:t} == micro ]]; then
-    $ed -statusline true \
+    # softwrap, because a pane is narrower than a file: prose and long lines
+    # would otherwise run off the right edge and be read by scrolling sideways.
+    # scrollbar, so a long file shows how long it is. Both are micro defaults-off.
+    $ed -statusline true -softwrap true -scrollbar true \
         -statusformatr "^S save   ^Q back to the file list   ^Z undo   ^F find" \
         "$target"
   else
@@ -209,10 +252,15 @@ _office_pick_file() {                  # [dir]
 }
 
 
-# --- the right strip: shell, editor, chat, top to bottom ---------------------
+# --- the right strip: shell, chat, file editor, top to bottom ----------------
 # The order is data, so a pane that is toggled off and back on lands where it
 # belongs instead of at the bottom.
-typeset -gA _OFFICE_STRIP_ORDER=(SHELL 1 EDITOR 2 CHAT 3)
+#
+# The agent you built sits in the middle, above the file editor: it is the pane
+# you actually talk to, and the file list is the one you reach for least. With no
+# chat wired up the strip is just the shell and the editor, which is the same
+# order with the middle row missing.
+typeset -gA _OFFICE_STRIP_ORDER=(SHELL 1 CHAT 2 EDITOR 3)
 _office_rank() { print -r -- ${_OFFICE_STRIP_ORDER[$1]:-9} }
 
 # where a <kind> pane belongs in the strip: "<pane-id> <split-flag>", where the
@@ -357,7 +405,7 @@ _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
   out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
-  for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "EDITOR:editor:e" "CHAT:chat:c"; do
+  for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "CHAT:chat:c" "EDITOR:editor:e"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
     out+="${sep}${tone}${name} ${key}#[default]"
@@ -531,13 +579,20 @@ _office_stash_ensure() {
 }
 
 _office_hide() {                       # <pane-id>
-  local kind; kind=$(tmux display -p -t "$1" '#{@office_kind}' 2>/dev/null)
+  local kind sess
+  kind=$(tmux display -p -t "$1" '#{@office_kind}' 2>/dev/null)
+  sess=$(tmux display -p -t "$1" '#{session_name}' 2>/dev/null)
   [[ -n $kind ]] || kind=pane
   _office_stash_ensure
   # two parked CLAUDE desks would otherwise both be a window called "claude", and
   # only ever one of them could be found again. The pane id makes it unique, and
-  # _office_unhide matches on the "<kind>-" prefix.
-  local name="${(L)kind}-${1#\%}"
+  # _office_unhide matches on the "<kind>-<office>-" prefix.
+  #
+  # The office is in the name because the stash is ONE session for the whole
+  # server: keyed by kind alone, parking the file editor in one office and
+  # pressing Ctrl-Space e in another handed you the first office's pane, panel
+  # and all.
+  local name="${(L)kind}-${(L)sess}-${1#\%}"
   tmux break-pane -d -s "$1" -t "=$_OFFICE_STASH:" -n "$name" 2>/dev/null || return 1
   # the placeholder only exists because a session needs one window; once a real
   # pane is parked it is just noise in `office doctor`.
@@ -551,8 +606,10 @@ _office_hide() {                       # <pane-id>
 _office_unhide() {                     # <session> <kind>
   local w p
   local -a slot
+  # THIS office's stash entry for that kind, or the exact window name when
+  # `office show` passed one through.
   w=$(tmux list-windows -t "=$_OFFICE_STASH" -F '#{window_id} #{window_name}' 2>/dev/null \
-      | awk -v n="${(L)2}" '$2==n || index($2, n "-")==1 {print $1; exit}')
+      | awk -v n="${(L)2}" -v pfx="${(L)2}-${(L)1}-" '$2==n || index($2, pfx)==1 {print $1; exit}')
   [[ -n $w ]] || return 1
   p=$(tmux list-panes -t "$w" -F '#{pane_id}' 2>/dev/null | head -1)
   slot=($(_office_place "$1" "$2"))
@@ -578,11 +635,9 @@ _office_strip_title() {
 #   +-------------------------------+-----------+
 #   |  CLAUDE                       | SHELL     |  ^Ss
 #   +-------------------------------+-----------+
-#   |  CLAUDE 2                     | EDITOR    |  ^Se
+#   |  CLAUDE 2                     | CHAT      |  ^Sc  (opens on demand)
 #   |                               +-----------+
-#   |                               | CHAT      |  ^Sc  (opens on demand)
-#   +-------------------------------+-----------+
-#   |                               | EDITOR    |  ^Se
+#   |                               | FILE ED.  |  ^Se
 #   +-------------------------------+-----------+
 #
 # CHAT (^Sc) is the one pane that starts closed: point OFFICE_CHAT_CMD at your
@@ -595,28 +650,29 @@ _office_open() {                       # <repo-path>
   s=$(_office_sessname "$dir")
   if ! tmux has-session -t "=$s" 2>/dev/null; then
     local main editor strip n prev chat
-    main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
+    main=$(tmux new-session -d -s "$s" -c "$dir" -n office -P -F '#{pane_id}' "$OFFICE_SESSION_CMD$_OFFICE_DESK_END")
     _office_label "$main" "$OFFICE_SESSION_LABEL" CLAUDE
     # the right strip first, at OFFICE_STRIP_WIDTH: these are glance surfaces, and
     # width once here is what leaves the sessions a full-width column.
     strip=$(tmux split-window -h -l ${OFFICE_STRIP_WIDTH}% -t "$main" -c "$dir" -P -F '#{pane_id}')
     _office_label "$strip" "$(_office_strip_title "$dir")" SHELL
-    # The editor comes up too: everyone needs a file open sooner or later.
-    editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' 'zsh -ic "while _office_pick_file; do :; done; exec zsh"')
-    _office_label "$editor" "EDITOR" EDITOR
-    # ...and the chat, but only once you have given it something to run.
+    # then the chat, once you have given it something to run: the agent you
+    # built belongs directly under the shell, not at the bottom of the strip.
     if (( OFFICE_CHAT_OPEN )); then
-      local chat
-      chat=$(tmux split-window -v -t "$editor" -c "$dir" -P -F '#{pane_id}' "$OFFICE_CHAT_CMD")
+      chat=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' "$OFFICE_CHAT_CMD")
       _office_label "$chat" "$OFFICE_CHAT_LABEL" CHAT
     fi
+    # the file editor comes up too, at the bottom: everyone needs a file open
+    # sooner or later, and it is the pane you reach for least.
+    editor=$(tmux split-window -v -t "${chat:-$strip}" -c "$dir" -P -F '#{pane_id}' "$_OFFICE_EDITOR_CMD")
+    _office_label "$editor" "FILE EDITOR" EDITOR
     # the rest of the sessions, stacked down the left. Split the one just made,
     # not the tallest — otherwise desk 3 lands between 1 and 2 and the labels lie.
     local prev=$main
     # C-style, not {2..$N}: zsh counts a brace range DOWNWARDS when the start
     # is past the end, so a single-desk default would silently open three.
     for (( n = 2; n <= _OFFICE_DEFAULT_DESKS; n++ )); do
-      prev=$(tmux split-window -v -t "$prev" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
+      prev=$(tmux split-window -v -t "$prev" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD$_OFFICE_DESK_END")
       _office_label "$prev" "$OFFICE_SESSION_LABEL $n" CLAUDE
     done
     _office_even_desks "$s"
@@ -644,14 +700,14 @@ _office_new() {                        # [worktree-name] -> extra session
   label=$(basename "$dir")
   [[ $dir == "$root" ]] && label="$OFFICE_SESSION_LABEL" || label="$OFFICE_SESSION_LABEL · $label"
 
-  local s; s=$(_office_sessname "$root")
+  local s; s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
 
   # split the tallest desk in the left column, so agents stack down the left and
   # the right strip keeps its width
   local newp
-  newp=$(tmux split-window -v -t "$(_office_desk_pane "$s")" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD; exec zsh")
+  newp=$(tmux split-window -v -t "$(_office_desk_pane "$s")" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD$_OFFICE_DESK_END")
   _office_label "$newp" "$label" CLAUDE
   _office_even_desks "$s"
   # not inside tmux and not on a terminal (a run-shell keybinding) — nothing to attach to
@@ -664,7 +720,7 @@ _office_new() {                        # [worktree-name] -> extra session
 _office_add_pane() {                   # <label> <command> [dir] [kind]
   local s newp dir=${3:-$PWD} kind=${4:-${1}}
   local -a slot
-  s=$(_office_sessname "$(_office_root "$PWD")")
+  s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
   if [[ $(_office_rank "$kind") == 9 ]] && (( $(_office_desk_count "$s") >= _OFFICE_MAX_DESKS )); then
@@ -684,13 +740,33 @@ _office_add_pane() {                   # <label> <command> [dir] [kind]
 # ONE verb for the three panes that come and go: on screen -> stash it;
 # stashed -> put it back; never existed -> make it.
 _office_toggle() {                     # <kind> <label> <command>
-  local s p root; root=$(_office_root "$PWD"); s=$(_office_sessname "$root")
+  local s p root; root=$(_office_root "$PWD"); s=$(_office_here)
   tmux has-session -t "=$s" 2>/dev/null \
     || { _office_say "no office open — run 'office on' first"; return 0 }
   p=$(_office_pane_of_kind "$s" "$1")
-  [[ -n $p ]] && { _office_hide "$p"; return }
-  _office_unhide "$s" "$1" && return
+  # A pane that quit its job and left a bare prompt behind is not a pane to
+  # hide. Pressing its key means "give it back", so give it back.
+  if [[ -n $p ]]; then
+    _office_revive "$p" "$3" && return
+    _office_hide "$p"; return
+  fi
+  if _office_unhide "$s" "$1"; then
+    _office_revive "$(_office_pane_of_kind "$s" "$1")" "$3"   # parked while dead
+    return
+  fi
   _office_add_pane "$2" "$3" "$root" "$1"
+}
+
+# Put a pane that gave up back to work. The job marks itself dead on the way out
+# (@office_live 0), so this never guesses from process names and can never kill
+# a pane that is still running something.
+_office_revive() {                     # <pane> <command> -> 0 if it was revived
+  [[ -n $1 ]] || return 1
+  [[ $(tmux display -p -t "$1" '#{@office_live}' 2>/dev/null) == 0 ]] || return 1
+  tmux set -p -t "$1" @office_live '' 2>/dev/null
+  tmux respawn-pane -k -t "$1" "$2" 2>/dev/null || return 1
+  tmux select-pane -t "$1" 2>/dev/null
+  return 0
 }
 
 # every tmux session that is an office (i.e. all of them)
@@ -752,7 +828,9 @@ _office_always_on() { eval "$OFFICE_RUNNING_CHECK"; }
 # undo of `office off`. Skip it with `office solo` (tabs only, nothing started).
 _office_always_on_up() {
   [[ -n $OFFICE_SOLO || -z $OFFICE_ON_CMD ]] && return 0
-  command -v ${${(z)OFFICE_ON_CMD}[1]} >/dev/null || return 0
+  # same trap as _office_editor: a one-word OFFICE_ON_CMD would be tested one
+  # character at a time and the stack would never come up.
+  command -v ${OFFICE_ON_CMD%% *} >/dev/null || return 0
   _office_always_on && return 0
   print -P "%F{green}==> $OFFICE_ON_CMD%f"
   eval "$OFFICE_ON_CMD"
@@ -775,9 +853,9 @@ _office_help() {
   print -P "    ${d}┌─────────────────────────────┬──────────────┐${r}"
   print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL${r}                      ${d}│${r} ${g}SHELL${r}        ${d}│${r} ${g}^Space s${r}"
   print -P "    ${d}├─────────────────────────────┼──────────────┤${r}"
-  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}EDITOR${r}       ${d}│${r} ${g}^Space e${r}"
+  print -P "    ${d}│${r} ${g}$OFFICE_SESSION_LABEL 2${r}   ${d}^Space n adds${r}  ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
   print -P "    ${d}│${r}              ${d}one more${r}       ${d}├──────────────┤${r}"
-  print -P "    ${d}│${r}                             ${d}│${r} ${g}$OFFICE_CHAT_LABEL${r}   ${d}│${r} ${g}^Space c${r}"
+  print -P "    ${d}│${r}                             ${d}│${r} ${g}FILE EDITOR${r}  ${d}│${r} ${g}^Space e${r}"
   print -P "    ${d}└─────────────────────────────┴──────────────┘${r}"
   print -P "    ${d}  the agents that build it        the agent${r}"
   print -P "    ${d}  claude / codex / your own       you built${r}"
@@ -790,8 +868,8 @@ _office_help() {
   print -P "  ${g}Ctrl-Shift-←↑↓→${r}    move between panes"
   print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
   print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
-  print -P "  ${g}s${r}    toggle the SHELL         ${g}e${r}  toggle the EDITOR"
-  print -P "  ${g}c${r}    toggle the CHAT          ${g}a${r}  park/restore ALL sessions"
+  print -P "  ${g}s${r}    toggle the SHELL         ${g}c${r}  toggle the CHAT"
+  print -P "  ${g}e${r}    toggle the FILE EDITOR   ${g}a${r}  park/restore ALL sessions"
   print -P "  ${g}w${r} ${d}or${r} ${g}q${r}  CLOSE this pane     ${g}x${r}  park it, still running"
   print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"
   print -P "  ${g}h j k l${r} or arrows              move, if the chord will not reach you"
@@ -810,7 +888,7 @@ ${r}"
   print -P "  ${g}office task X${r}  A new session already working on X."
   print -P "  ${g}office desk${r}    One more session in THIS repo, straight into the left column."
   print -P "                 ${d}Ctrl-Space a does the same. Four desks is the cap.${r}"
-  print -P "  ${g}office edit${r}    Toggle the EDITOR pane — fuzzy-pick a file, edit it in place."
+  print -P "  ${g}office edit${r}    Toggle the FILE EDITOR pane — fuzzy-pick a file, edit it in place."
   print -P "                 ${d}Ctrl-S saves · Ctrl-Z undo · mouse works.${r}"
   print -P "                 ${d}Ctrl-Q closes the FILE and returns you to the list;${r}"
   print -P "                 ${d}Esc at the list leaves the editor. Ctrl-Shift-e hides the pane.${r}"
@@ -845,7 +923,7 @@ ${r}"
   print -P "                 ${d}are listed first. Ctrl-S save · Ctrl-Q quit · Ctrl-Z undo${r}"
   print -P "                 ${d}Ctrl-F find · mouse and normal copy-paste all work.${r}"
   print -P "  ${g}edit <file>${r}    Open (or create) that file directly."
-  print -P "  ${g}office edit${r}    A dedicated EDITOR pane. ${d}Ctrl-Space e does it inline.${r}"
+  print -P "  ${g}office edit${r}    A dedicated FILE EDITOR pane. ${d}Ctrl-Space e does it inline.${r}"
   print -P "  ${g}n${r}              Neovim instead, when you want the full IDE.\n"
 
   print -P "${g}IF YOU FORGET ONE THING, REMEMBER THIS${r}"
@@ -872,11 +950,11 @@ office() {
     solo)
       OFFICE_SOLO=1 office on ;;
     desk|claude)
-      _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
+      _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD$_OFFICE_DESK_END" "$(_office_root "$PWD")" CLAUDE ;;
     task|do|go)
       shift
       (( $# )) || { print -u2 "usage: office task <what you want done>"; return 1 }
-      _office_add_pane "$OFFICE_SESSION_LABEL · $*" "$OFFICE_SESSION_CMD ${(q)*}; exec zsh" "$(_office_root "$PWD")" CLAUDE ;;
+      _office_add_pane "$OFFICE_SESSION_LABEL · $*" "$OFFICE_SESSION_CMD ${(q)*}$_OFFICE_DESK_END" "$(_office_root "$PWD")" CLAUDE ;;
     # the three right-strip panes are TOGGLES: same word closes what it opened.
     chat|talk)
       _office_toggle CHAT   "$OFFICE_CHAT_LABEL" "$OFFICE_CHAT_CMD" ;;
@@ -885,11 +963,11 @@ office() {
     edit|editor|files)
       # loop the picker: quitting a file (Ctrl-Q) drops you back at the file
       # list, not at a shell. Esc at the list is how you actually leave.
-      _office_toggle EDITOR "EDITOR" 'zsh -ic "while _office_pick_file; do :; done; exec zsh"' ;;
+      _office_toggle EDITOR "FILE EDITOR" "$_OFFICE_EDITOR_CMD" ;;
     sessions|desks)
       # the whole left column, in one key. Park them all, or bring them all back.
       local s p n=0
-      s=$(_office_sessname "$(_office_root "$PWD")")
+      s=$(_office_here)
       for p in ${(f)"$(tmux list-panes -t "=$s" -F '#{pane_id}|#{@office_kind}' 2>/dev/null | awk -F'|' '$2=="CLAUDE"{print $1}')"}; do
         [[ -n $p ]] || continue
         _office_hide "$p"; (( n++ ))
@@ -907,7 +985,7 @@ office() {
       # nothing. A silent no-op reads as a broken binding, and the honest answer
       # to "show me my sessions" when there are none is to open one. Every other
       # toggle already worked this way; this was the one that did not.
-      (( back )) || _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD; exec zsh" \
+      (( back )) || _office_add_pane "$OFFICE_SESSION_LABEL" "$OFFICE_SESSION_CMD$_OFFICE_DESK_END" \
                       "$(_office_root "$PWD")" CLAUDE
       _office_number "$s" ;;
     update|upgrade)
@@ -921,7 +999,7 @@ office() {
       tmux source-file "$_OFFICE_HOME/office.tmux.conf" 2>/dev/null
       print "updated. Reload your shells (or 'office off' and 'office on') to pick up the rest." ;;
     renumber)
-      _office_number "$(_office_sessname "$(_office_root "$PWD")")" ;;
+      _office_number "$(_office_here)" ;;
     sweep|stale)
       # `office sweep [hours]` — offices nobody has looked at in that long, and
       # everything inside them. Default 12h, so yesterday's office is fair game
@@ -948,11 +1026,11 @@ office() {
       (( $#groups )) && _office_kill_groups ${(u)groups}
       print -P "swept ${#stale} office(s). %F{green}~${mb}MB%f back." ;;
     layout|fix|repair)
-      _office_relayout "$(_office_sessname "$(_office_root "$PWD")")"; print "layout rebuilt." ;;
+      _office_relayout "$(_office_here)"; print "layout rebuilt." ;;
     hide|collapse)
       _office_hide "${2:-$(tmux display -p '#{pane_id}')}" ;;
     show|restore|back)
-      local s k; s=$(_office_sessname "$(_office_root "$PWD")")
+      local s k; s=$(_office_here)
       k=${2:-$(tmux list-windows -t "=$_OFFICE_STASH" -F '#{window_name}' 2>/dev/null \
                | fzf --prompt='bring back> ' --height=40% --reverse)}
       [[ -n $k ]] || return

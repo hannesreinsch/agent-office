@@ -55,7 +55,7 @@ office on
 │ 1 CLAUDE                    │ 2 SHELL      │
 │                             │              │
 │   your coding agent         ├──────────────┤
-│   claude / codex / any CLI  │ 3 EDITOR     │
+│   claude / codex / any CLI  │ 3 FILE EDITOR│
 │                             │              │
 └─────────────────────────────┴──────────────┘
 ```
@@ -71,7 +71,7 @@ space.
 For `git status`, `npm test`, `ls`. You use it to *check* the agent's work: it
 says it fixed the tests, so you run them.
 
-**3. The editor (bottom right).** A file browser that follows the shell pane, so
+**3. The file editor (bottom right).** A file browser that follows the shell pane, so
 the two work together: `cd` in the shell to aim, browse and open in the editor.
 For reading what the agent did, or a quick manual fix.
 
@@ -131,7 +131,7 @@ Now you are inside a file, and here is the bit nobody remembers:
 | **Ctrl+Q** | close the file, back to the file list |
 | **Ctrl+Z** | undo |
 | **Ctrl+F** | find |
-| **Esc** (at the file list) | leave the editor pane entirely |
+| **Esc** (at the file list) | leave the file list. The pane becomes an ordinary shell, and `Ctrl+Space e` brings the list back |
 
 **The editor shows these keys along its bottom edge while a file is open**, so
 you do not have to remember them. Look down.
@@ -139,10 +139,16 @@ you do not have to remember them. Look down.
 The path out is always the same: `Ctrl+Q` gets you back to the list, `Esc`
 leaves the list, `Ctrl+Space e` hides the pane.
 
+**Nothing you do in here can lose the pane.** Leave the list and it says so, in
+the pane, with the key that brings it back. That key works on every pane in the
+strip: if what a pane was running has stopped, its own key starts it again
+instead of hiding it.
+
 > **If your editor looks nothing like this** and shows no help at the bottom,
-> you have vim, because your `$EDITOR` is set to it. If you did not choose that
-> on purpose, put `export OFFICE_EDITOR=micro` in your `.zshrc`. If you did
-> choose it, you already know how to quit.
+> your `$EDITOR` points somewhere else: vim, or macOS's `nano`, which is really
+> `pico` — no colours, no mouse, no visible way out. `brew install micro` and
+> `export OFFICE_EDITOR=micro` in your `.zshrc` gives you the pane above. If you
+> chose vim on purpose, you already know how to quit.
 
 ---
 
