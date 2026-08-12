@@ -352,13 +352,16 @@ _OFFICE_BAR_SEP='#[fg=#3a3c44]'
 _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
-  out="${_OFFICE_BAR_DO}^Space then#[default]  ${_OFFICE_BAR_SEP}│#[default]  ${_OFFICE_BAR_DO}n new#[default]  "
+  out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_DO}n new${_OFFICE_BAR_SEP} · #[default]"
   for pair in "CLAUDE:sessions:a" "SHELL:shell:s" "EDITOR:editor:e" "CHAT:chat:c"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
     out+="${sep}${tone}${name} ${key}#[default]"
     sep="${_OFFICE_BAR_SEP} · #[default]"
   done
+  # The actions that act on the pane you are in. No state to show, so they keep
+  # the action tone: nothing here is ever "closed".
+  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_DO}w close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_DO}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_DO}z zoom#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
