@@ -1,7 +1,7 @@
 # agent-office
 
-**Run several Claude Code sessions side by side, in one window, with one
-command.**
+**Run several coding-agent sessions side by side, in one window, with one
+command.** Claude Code out of the box, any agent CLI with one variable.
 
 ```sh
 office on
@@ -9,16 +9,16 @@ office on
 
 ```
 ┌─────────────────────────────┬──────────────┐
-│ 1 CLAUDE                    │ 4 AGENT VIEW │  ⌃⇧a
+│ 1 CLAUDE                    │ 4 SHELL      │  ⌃⇧s
 │                             │              │
 ├─────────────────────────────┼──────────────┤
-│ 2 CLAUDE 2      ⌃⇧n adds    │ 5 SHELL      │  ⌃⇧s
-│                 one more    ├──────────────┤
-├─────────────────────────────┤ 6 EDITOR     │  ⌃⇧e
-│ 3 CLAUDE 3                  ├──────────────┤
-│                             │ 7 AGENT CHAT │  ⌃⇧c
+│ 2 CLAUDE 2      ⌃⇧n adds    │ 5 EDITOR     │  ⌃⇧e
+│                 one more    │              │
+├─────────────────────────────┼──────────────┤
+│ 3 CLAUDE 3                  │ 6 AGENT CHAT │  ⌃⇧c
+│                             │              │
 └─────────────────────────────┴──────────────┘
-        your agents               you, watching
+        your agents               you, working
 ```
 
 Agents own the wide left column, stacked and kept at equal height. Everything
@@ -82,7 +82,7 @@ you were coming back to is worse than a full disk.
 | `⌃⇧←↑↓→` | move between panes |
 | `⌃⇧n` | new Claude session, appended to the left column |
 | `⌃⇧t` | **type a task, get a session already working on it** |
-| `⌃⇧a` `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle agent view / shell / editor / chat |
+| `⌃⇧s` `⌃⇧e` `⌃⇧c` | toggle shell / editor / chat |
 | `⌃⇧w` | close this pane, and get the memory back |
 | `⌃⇧x` | park this pane, still running, same key brings it back |
 | `⌃⇧z` | zoom this pane fullscreen and back |
@@ -91,26 +91,29 @@ Every one also works as `Ctrl-Space` then the same letter, so nothing depends
 on the chord layer. The mouse works too: click a pane to focus it, drag a
 border to resize, and your layout is remembered.
 
-### Typing a task without knowing the chord
+### The keys are on the status bar
 
-`⌃⇧t` opens a prompt on the status bar. If you would rather not remember a
-chord, put a field there that is always visible and opens the same prompt when
-you click it:
+A pane's border carries the chord that toggles it, which is no help at all once
+the pane is closed and the border went with it. So the bar carries the whole
+set:
 
-Either take the shipped theme (below), which includes it, or add it yourself:
-
-```tmux
-set -g status-left "#[range=user|task] task: ⌃⇧t #[norange]"
-bind -n MouseDown1Status if -F '#{==:#{mouse_status_range},user}' \
-  { command-prompt -p "task:" 'run-shell -b "office task %%"' } \
-  { select-window -t= }
+```
++ new ⌃⇧n   │  shell ⌃⇧s · editor ⌃⇧e · chat ⌃⇧c
+               ^^^^^ dim = open        lit = closed ^^^^
 ```
 
-**That prompt takes text only.** You can paste text into it, but not an image
-and not a dragged file: it is a tmux input, and tmux has no idea what an image
-is. When a task needs one, open an empty session with `⌃⇧n` and paste into
-Claude Code's own prompt, which handles images and file drops. `⌃⇧t` is the
-fast path for a task you can say in a sentence.
+Brightness means one thing and one thing only: **lit means that pane is
+closed**, so the thing standing out is the thing you cannot find. `new` sits
+behind a divider because it is an action rather than a state. Clicking the
+strip opens a new session.
+
+It ships with the optional theme, or take it on its own:
+
+```tmux
+set -g status-left "#(~/code/agent-office/bin/office-bar '#{session_name}')"
+set -g status-left-length 70
+```
+
 
 ### Why Ctrl-Shift needs iTerm2 for the letters
 
@@ -134,28 +137,6 @@ Two things the installer handles that are easy to get wrong by hand:
   will not trigger a reload when you edit the target, so the file is written
   into the folder directly.
 
-## Two ways to start a session, and what each gives you
-
-**`⌃⇧n`, from the office.** A Claude session as a pane in the left column,
-focused, with its own input. Images paste, files drop, arrows work. Use this
-when you want to work with the agent.
-
-**"describe a task for a new session", from the agent view.** A background
-agent. It runs, it shows up in the agent view's list, and you talk to it there:
-`enter` opens it, `space` replies. Use this when you want to fire something off
-and check on it later.
-
-Both are supported and neither breaks the other. The one thing that cannot
-happen is moving between them: a background agent can never become a pane,
-because Claude Code refuses a second attachment to a running one (see below).
-
-One asymmetry worth knowing: **the agent view lists background agents, not your
-panes.** `claude agents --json` reports both, but the view shows the background
-ones. So a session you start with `⌃⇧n` will not appear in that list. It is not
-stale, it is scoped: you can watch the spinner tick in an unfocused agent view
-and see the counts move. Your panes are visible as panes, with numbers and
-labels on their borders, which is the point of having them.
-
 ## Park versus close
 
 `⌃⇧x` parks a pane: it is moved to a hidden tmux session and keeps running.
@@ -178,12 +159,11 @@ live ones for exactly that reason.
 | `office desk` | one more Claude session |
 | `office task <what>` | one more Claude session, already working on `<what>` |
 | `office new [wt]` | one more Claude session in its own git worktree |
-| `office chat` `shell` `agents` `edit` | toggle a right-strip pane |
+| `office chat` `shell` `edit` | toggle a right-strip pane |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
 | `office clean` | pick panes to close, heaviest first (rarely needed) |
 | `office clean --idle [h]` | no picker: close anything idle over `h` hours |
-| `office fixagents` | restart the agent view when it stops responding |
 | `office help` | all of the above, with the diagram |
 
 The command is `office`. `ao` and `o` are aliases for it.
@@ -196,7 +176,9 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 |---|---|---|
 | `OFFICE_DEFAULT` | *(empty)* | repo that bare `office on` opens |
 | `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
-| `OFFICE_DEFAULT_DESKS` | `1` | Claude sessions opened at startup |
+| `OFFICE_SESSION_CMD` | `claude` | **what a session is.** Any agent CLI |
+| `OFFICE_SESSION_LABEL` | `CLAUDE` | what its panes are called |
+| `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
@@ -228,7 +210,6 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | what you see | what to do |
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
-| agent view will not scroll or accept typing | `office fixagents` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `⌃⇧w`, reopen with `⌃⇧c` |
 | the chords do nothing at all | the iTerm profile is not your default. See below |
@@ -284,20 +265,18 @@ binding makes tmux force the active pane into view-mode, where every Ctrl-Shift
 chord stops working and the pane looks frozen. Messages go to the status line
 instead.
 
-**What it cannot do:** a session dispatched from inside the agent view can
-never become a pane. It belongs to Claude Code's daemon, and Claude Code
-refuses a second attachment in as many words:
+**It works with any agent CLI.** A session is just `OFFICE_SESSION_CMD`, so
+`office` has no idea what Claude Code is:
 
-```
-Session ... is currently running as a background agent (bg).
-Use `claude agents` to find and attach to it, or add --fork-session
-to branch off a copy.
+```sh
+OFFICE_SESSION_CMD="codex"
+OFFICE_SESSION_LABEL="CODEX"
 ```
 
-Forking would give you a second agent duplicating the first one's work, which
-is worse than useless. So `office` goes through the door that does work:
-`⌃⇧t`, type the task, and a Claude session opens in the left column already
-working on it. Same thought, one keystroke, and it is a real pane.
+There is deliberately no integration with any one agent's own session manager.
+An office pane is a terminal running your agent, and that is the whole
+contract: whatever the agent can do in a terminal, it can do here, including
+pasting images and dropping files.
 
 ## The theme, if you want it
 
@@ -359,7 +338,6 @@ so the blast radius is panes and sessions, never files:
 | `office off` | quits every office, lists what it will do and asks first |
 | `office clean` | you pick the panes, Esc closes nothing |
 | `office clean --idle` | **no confirmation, by design.** It is the unattended form |
-| `office fixagents` | restarts the agent view's process, losing nothing else |
 
 The three `OFFICE_ALWAYS_ON_*` variables are evaluated as shell, because that
 is what they are for. They come from your own config, so treat them the way you
