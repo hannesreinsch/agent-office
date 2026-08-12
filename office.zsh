@@ -61,12 +61,14 @@ _office_attach() {
   else tmux attach-session -t "=$s"; fi
 }
 
-# the tallest desk in the LEFT column — the one to split when a new agent
-# arrives. Returns a pane id (%N), the only target type that is unambiguous.
-# The right-hand strip (chat + shell) is excluded structurally, by having a
-# pane_left greater than the column's, so no label matching is involved.
+# the BOTTOM desk in the left column: a new session is split off it, so sessions
+# append downwards and their numbers stay in the order you opened them. Splitting
+# the tallest instead would drop session 3 in between 1 and 2.
+# Returns a pane id (%N), the only target type that is unambiguous. The right
+# strip is excluded structurally, by having a greater pane_left than the
+# column's, so no label matching is involved.
 _office_desk_pane() {
-  tmux list-panes -t "=$1" -F '#{pane_left} #{pane_height} #{pane_id}' 2>/dev/null \
+  tmux list-panes -t "=$1" -F '#{pane_left} #{pane_top} #{pane_id}' 2>/dev/null \
     | sort -k1,1n -k2,2nr | awk 'NR==1 { print $3 }'
 }
 
