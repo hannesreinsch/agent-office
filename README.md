@@ -397,12 +397,18 @@ source-file ~/agent-office/theme/office-theme.tmux.conf  # optional
 
 Source it second, because it overrides the pane border. Monochrome by
 conviction: state is tone, weight and inversion, never hue, and exactly one
-colour is allowed on the bar. It also brings the clickable `task:` field
-described above, and a hook for your own status line:
+colour is allowed on the bar. It also brings the clickable strip described above.
 
-```sh
-OFFICE_STATUS_CMD=~/bin/my-status   # prints one line, refreshed every 5s
+**The right-hand side of the bar is yours.** The theme puts a git branch and a
+clock there and nothing else. To add your own, put one line in your
+`~/.tmux.conf` after the `source-file` line and it wins:
+
+```tmux
+set -g status-right "#[fg=#f6f5f1]#(~/bin/my-status)  #[fg=#6a6c77]%H:%M "
 ```
+
+Whatever is in `#()` runs every five seconds and its first line is printed. Keep
+it fast, keep it one line.
 
 ## Your status bar stays yours
 
