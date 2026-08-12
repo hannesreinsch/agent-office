@@ -882,7 +882,9 @@ _office_help() {
   print -P "  ${g}Enter${r}  scrollback / copy mode  ${g}r${r}  reload the tmux config"
   print -P "  ${d}Only the arrows are a chord, because they carry their modifier natively.${r}"
   print -P "  ${d}Everything else is the prefix: no terminal setup, same on every OS.${r}"
-  print -P "  ${d}Each border shows the key for that pane. Or just click one with the mouse.
+  print -P "  ${d}Each border shows the key for that pane. Or just click one with the mouse:${r}"
+  print -P "  ${d}double-click a pane to zoom it and again to come back, and drag across${r}"
+  print -P "  ${d}text to copy it — it is on the clipboard when you let go.
 ${r}"
 
   print -P "${g}RUNNING SEVERAL AGENTS${r} ${d}— the whole point of this setup${r}"

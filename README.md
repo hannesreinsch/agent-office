@@ -158,7 +158,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 | `a` | park every session, bring them all back, or open one if there are none |
 | `w` or `q` | close this pane |
 | `x` | park this pane. Still running, `office show` brings it back |
-| `z` | zoom this pane full screen, and back |
+| `z` | zoom this pane full screen, and back. A double-click does the same |
 | `h j k l` or arrows | move, if your terminal will not send the chord |
 
 
@@ -166,7 +166,9 @@ Two rules, and the second covers everything. Movement is a chord because it is
 what you do most and arrows carry their modifier natively; every action is the
 prefix, which is the tmux convention and needs **no terminal configuration on
 any platform**. The mouse works too: click a pane to focus it, drag a border to
-resize, and it stays that way until `office off`.
+resize, **double-click a pane to zoom it** and again to come back, and **drag
+across text to copy it** — it is on the system clipboard the moment you let go,
+in the shell and in the file editor both. It stays that way until `office off`.
 
 ### The keys are on the status bar
 
