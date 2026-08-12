@@ -156,6 +156,7 @@ This is the actual point of the tool. One agent refactoring while another writes
 tests, and you moving between them.
 
 When one is finished, **Ctrl+Space, then `w`** closes that pane. It asks first.
+(`q` does the same, if that is what your fingers reach for.)
 
 ---
 
@@ -195,7 +196,7 @@ And `Ctrl+Space`, then:
 | `n` | new agent session |
 | `s` `e` `c` | show or hide shell / editor / chat |
 | `a` | hide every agent at once, or bring them all back |
-| `w` | close this pane for good |
+| `w` or `q` | close this pane for good |
 | `x` | park this pane: hidden, still running |
 | `z` | zoom this pane full screen, and back |
 

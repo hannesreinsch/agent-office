@@ -709,7 +709,7 @@ _office_help() {
   print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
   print -P "  ${g}s${r}    toggle the SHELL         ${g}e${r}  toggle the EDITOR"
   print -P "  ${g}c${r}    toggle the CHAT          ${g}a${r}  park/restore ALL sessions"
-  print -P "  ${g}w${r}    CLOSE this pane          ${g}x${r}  park it, still running"
+  print -P "  ${g}w${r} ${d}or${r} ${g}q${r}  CLOSE this pane     ${g}x${r}  park it, still running"
   print -P "  ${g}z${r}    zoom this pane           ${g}m${r}  mouse reporting on/off"
   print -P "  ${g}h j k l${r} or arrows              move, if the chord will not reach you"
   print -P "  ${g}|${r} ${g}-${r}  split raw               ${g}X${r}  close the whole office"
