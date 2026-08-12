@@ -84,6 +84,42 @@ _office_desk_count() {
     | sort -n | awk 'NR==1 {l=$1} $1==l {n++} END {print n+0}'
 }
 
+# --- the editor pane ---------------------------------------------------------
+# Shipped, not assumed. This used to call a function that happened to exist on
+# the author's machine, which meant the editor pane died with "command not
+# found" for everybody else.
+#
+# $OFFICE_EDITOR, else $EDITOR, else the first of micro / nano / vi that is
+# installed. micro first because it is the one you can drive with no manual:
+# Ctrl-S saves, Ctrl-Q quits, arrows and the mouse behave.
+_office_editor() {
+  local e
+  for e in $OFFICE_EDITOR $EDITOR micro nano vi; do
+    [[ -n $e ]] && command -v ${${(z)e}[1]} >/dev/null && { print -r -- "$e"; return }
+  done
+  print -r -- vi
+}
+
+# fuzzy-pick a file and open it. Files you have changed come first: it is nearly
+# always one of them. Returns non-zero when you cancel, which is what lets the
+# editor pane loop until you actually want out.
+_office_pick_file() {                  # [dir]
+  local target=${1:-}
+  if [[ -z $target || -d $target ]]; then
+    local where=${target:-.}
+    target=$( { git -C "$where" ls-files -m -o --exclude-standard 2>/dev/null
+                fd --type f --hidden --follow --exclude .git --exclude node_modules . "$where" 2>/dev/null \
+                  || find "$where" -type f -not -path '*/.git/*' 2>/dev/null
+              } | awk '!seen[$0]++' \
+             | fzf --prompt='edit> ' --height=70% --reverse \
+                   --header='changed files first · Esc to leave the editor' \
+                   --preview 'bat --style=numbers --color=always --line-range :300 {} 2>/dev/null || cat {}' \
+                   --preview-window=right:60%:wrap) || return 1
+  fi
+  [[ -n $target ]] || return 1
+  ${(z)$(_office_editor)} "$target"
+}
+
 # --- the right strip: shell, editor, chat, top to bottom ---------------------
 # The order is data, so a pane that is toggled off and back on lands where it
 # belongs instead of at the bottom.
@@ -418,7 +454,7 @@ _office_open() {                       # <repo-path>
     # The editor comes up too: everyone needs a file open sooner or later.
     # CHAT does NOT, because a chat pane is only worth the space once you have
     # pointed OFFICE_CHAT_CMD at your own agent. Open it with Ctrl-Shift-c.
-    editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' 'zsh -ic "while edit; do :; done; exec zsh"')
+    editor=$(tmux split-window -v -t "$strip" -c "$dir" -P -F '#{pane_id}' 'zsh -ic "while _office_pick_file; do :; done; exec zsh"')
     _office_label "$editor" "EDITOR" EDITOR
     # the rest of the sessions, stacked down the left. Split the one just made,
     # not the tallest — otherwise desk 3 lands between 1 and 2 and the labels lie.
@@ -646,7 +682,7 @@ _office_help() {
 
   print -P "${g}A DIFFERENT REPO${r}"
   print -P "  ${g}office <name>${r}  Open any repo by name — fuzzy, so 'proj' finds 'my-project'."
-  print -P "  ${g}office pick${r}    Not sure of the name? Pick from every repo in ~/code."
+  print -P "  ${g}office pick${r}    Not sure of the name? Pick from every repo in $CODE_ROOT."
   print -P "  ${g}office solo${r}    Like 'on', but starts nothing — just the tabs."
   print -P "                 ${d}Use when you want the panes without the rest.${r}\n"
 
@@ -695,7 +731,7 @@ office() {
     edit|editor|files)
       # loop the picker: quitting a file (Ctrl-Q) drops you back at the file
       # list, not at a shell. Esc at the list is how you actually leave.
-      _office_toggle EDITOR "EDITOR" 'zsh -ic "while edit; do :; done; exec zsh"' ;;
+      _office_toggle EDITOR "EDITOR" 'zsh -ic "while _office_pick_file; do :; done; exec zsh"' ;;
     sessions|desks)
       # the whole left column, in one key. Park them all, or bring them all back.
       local s p n=0
