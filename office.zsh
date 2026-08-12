@@ -112,12 +112,21 @@ _office_pick_file() {                  # [dir]
                   || find "$where" -type f -not -path '*/.git/*' 2>/dev/null
               } | awk '!seen[$0]++' \
              | fzf --prompt='edit> ' --height=70% --reverse \
-                   --header='changed files first · Esc to leave the editor' \
+                   --header='changed files first · enter opens · Esc closes the editor pane' \
                    --preview 'bat --style=numbers --color=always --line-range :300 {} 2>/dev/null || cat {}' \
                    --preview-window=right:60%:wrap) || return 1
   fi
   [[ -n $target ]] || return 1
-  ${(z)$(_office_editor)} "$target"
+  local -a ed; ed=(${(z)$(_office_editor)})
+  # Put the keys where you need them: in the editor, while the file is open.
+  # Nobody remembers how to get back out of an editor they use twice a week.
+  if [[ ${ed[1]:t} == micro ]]; then
+    $ed -statusline true \
+        -statusformatr "^S save   ^Q back to the file list   ^Z undo   ^F find" \
+        "$target"
+  else
+    $ed "$target"
+  fi
 }
 
 # --- the right strip: shell, editor, chat, top to bottom ---------------------

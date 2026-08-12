@@ -26,6 +26,11 @@ you only glance at shares the narrow strip on the right, and each of those four
 panes opens and closes with one chord. Closing the window kills nothing:
 `office on` puts you back exactly where you were, panes, layout and all.
 
+> **New to running an agent in the terminal?**
+> Start with **[GETTING-STARTED.md](GETTING-STARTED.md)**: what each pane is,
+> how to move around, and how to get back out of the editor. Twenty minutes,
+> once, no prior tmux assumed.
+
 ## Why
 
 Running three or four coding agents at once is normal now, and the tooling for
@@ -268,7 +273,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_SESSION_CMD` | `claude` | **what a session is.** Any agent CLI |
 | `OFFICE_SESSION_LABEL` | `CLAUDE` | what its panes are called |
 | `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees |
-| `OFFICE_EDITOR` | `$EDITOR`, else micro/nano/vi | what the editor pane opens files in |
+| `OFFICE_EDITOR` | `$EDITOR`, else micro/nano/vi | what the editor pane opens files in. Set it to `micro` if `$EDITOR` is vim and you would rather it were not |
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
