@@ -17,6 +17,31 @@ if [[ $1 == --theme || -n $OFFICE_ITERM_THEME ]]; then
   THEME="$HERE/theme/iterm-office-theme.json"
 fi
 
+# --- 0. what office actually needs --------------------------------------------
+# Checked before anything is written, because "command not found: tmux" three
+# steps later reads like the installer broke rather than like a missing package.
+# Deliberately NOT an installer for any of these: piping someone else's install
+# script is a thing you then owe maintenance on, and every one of these projects
+# documents its own better than a third party can.
+missing=()
+for c in tmux fzf fd; do command -v $c >/dev/null || missing+=($c) done
+if (( ${#missing} )); then
+  warn "not installed: ${missing}"
+  if command -v brew >/dev/null; then
+    print "      brew install ${missing}"
+  elif command -v apt >/dev/null; then
+    print "      sudo apt install ${missing/fd/fd-find}   # fd is fd-find on Debian and Ubuntu"
+  else
+    print "      install them with your package manager, then run this again"
+  fi
+  # tmux is the whole thing. fzf and fd are the file picker, so office still
+  # opens without them and only that pane is poorer.
+  if ! command -v tmux >/dev/null; then
+    print -u2 " !  office is tmux. Install it and run this again."
+    exit 1
+  fi
+fi
+
 # --- 1. shell ----------------------------------------------------------------
 RC=${ZDOTDIR:-$HOME}/.zshrc
 # office is a zsh function. zsh does not have to be your login shell, but it does
