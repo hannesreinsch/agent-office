@@ -1,0 +1,34 @@
+name: Something is broken
+description: A pane in the wrong place, a key that does nothing, a pane that will not close.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Almost every report is answered by the three commands below, so please
+        paste them even if the problem looks obvious. A key that does nothing is
+        usually a terminal that never sent it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+    validations: { required: true }
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Output of the three commands.
+      value: |
+        $ tmux -V ; echo $TERM_PROGRAM ; uname -s
+
+        $ office doctor
+
+        $ tmux list-panes -a -F '#{session_name} #{pane_id} #{@office_kind} #{pane_left},#{pane_top}'
+      render: shell
+    validations: { required: true }
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and OS
+      placeholder: iTerm2 on macOS 15 / Windows Terminal on WSL2 Ubuntu
+    validations: { required: true }
