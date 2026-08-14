@@ -1,40 +1,66 @@
 #!/usr/bin/env python3
-"""What does a pane actually receive when a key is pressed?
+"""Press a key at a real tmux client. Where did it end up?
 
-Run it after ANY change to key handling. It builds a throwaway tmux server with
-office.tmux.conf loaded, sends each key into a pane, and prints the raw bytes
-that arrived. The point is not the key you meant to change; it is the other
-twenty, which must come out byte-identical to the line printed as EXPECTED.
+Run it after ANY change to key handling. It builds a throwaway office on its own
+socket, attaches a client on a pty it can write raw bytes into, and checks both
+halves of the contract at once:
 
-    bin/key-probe                 # the default key set
-    bin/key-probe S-Enter Tab     # only these
+  - a key the office BINDS moves you, and never reaches the pane
+  - every other key reaches the pane byte for byte, including the modified ones
+    ASCII has no encoding for
 
-Its own server, its own socket: it cannot touch an office you are working in.
+The keys to watch are not the one you meant to change. They are the twenty you
+did not. Exits non-zero if any of them moved.
+
+    bin/key-probe
+
+`tmux send-keys` cannot do this job: it writes to the pane's tty directly, so it
+never consults a key table. Shift-Left looks "broken" under send-keys and works
+perfectly for a human. Only a real client tests what a human presses.
 """
-import os, pathlib, select, subprocess, sys, tempfile, termios, time, tty
+import os, pathlib, pty, select, subprocess, sys, tempfile, termios, time, tty
 
-HERE = pathlib.Path(__file__).resolve().parent.parent
 SOCK = "office-key-probe"
+CONF = pathlib.Path(__file__).resolve().parent.parent / "office.tmux.conf"
+WINDOW = 12  # seconds the recorder pane listens for
 
-# What each key MUST still send. The two extended ones are the whole reason
-# `extended-keys always` is set; every other row is what must not have moved.
-EXPECTED = {
-    "S-Enter": rb"\x1b[27;2;13~", "C-Enter": rb"\x1b[27;5;13~",
-    "Enter": rb"\r", "Tab": rb"\t", "BSpace": rb"\x7f", "Escape": rb"\x1b",
-    "Space": b" ", "a": b"a", "A": b"A",
-    "C-c": rb"\x03", "C-a": rb"\x01", "C-d": rb"\x04",
-    "S-Left": rb"\x1b[1;2D", "S-Right": rb"\x1b[1;2C",
-}
+MOVES = "moves the pane"
+
+# raw bytes in at the client -> what the pane must receive, or MOVES.
+#
+# Shift-Enter appears twice on purpose: a terminal may announce it in either
+# dialect, and tmux normalises both to the one form. That is what lets an app
+# tell Shift-Enter from Enter, which is the whole point of the setting.
+CASES = [
+    (rb"\x1b[1;2D", "Shift-Left",              MOVES),
+    (rb"\x1b[1;2C", "Shift-Right",             MOVES),
+    (rb"\x1b[27;2;13~", "Shift-Enter (xterm)", rb"\x1b[27;2;13~"),
+    (rb"\x1b[13;2u", "Shift-Enter (csi-u)",    rb"\x1b[27;2;13~"),
+    (rb"\r", "Enter",         rb"\r"),
+    (rb"\t", "Tab",           rb"\t"),
+    (rb"\x7f", "Backspace",   rb"\x7f"),
+    (rb"\x1b", "Escape",      rb"\x1b"),
+    (b"a", "a",               b"a"),
+    (b"A", "A",               b"A"),
+    (b" ", "Space",           b" "),
+    (rb"\x03", "Ctrl-C",      rb"\x03"),
+    (rb"\x01", "Ctrl-A",      rb"\x01"),
+    (rb"\x04", "Ctrl-D",      rb"\x04"),
+]
 
 
-def read_keys(out):
-    """Inside the pane: report every byte that lands here in three seconds."""
+def raw(b):
+    return b.decode("unicode_escape").encode("latin1")
+
+
+def record(out):
+    """Inside the pane: write down every byte that lands here."""
     fd, old = sys.stdin.fileno(), termios.tcgetattr(sys.stdin.fileno())
     tty.setraw(fd)
     buf, t = b"", time.time()
-    while time.time() - t < 3:
+    while time.time() - t < WINDOW:
         if select.select([fd], [], [], 0.2)[0]:
-            buf += os.read(fd, 128)
+            buf += os.read(fd, 256)
     termios.tcsetattr(fd, termios.TCSADRAIN, old)
     pathlib.Path(out).write_bytes(buf)
 
@@ -43,41 +69,60 @@ def tmux(*a):
     return subprocess.run(["tmux", "-L", SOCK, *a], capture_output=True, text=True)
 
 
-def main(keys):
-    out = pathlib.Path(tempfile.mkdtemp()) / "keys"
+def main():
+    out = pathlib.Path(tempfile.mkdtemp()) / "got"
     tmux("kill-server")
-    tmux("new-session", "-d", "-x", "80", "-y", "24",
-         f"{sys.executable} {__file__} --read {out}")
-    tmux("source-file", str(HERE / "office.tmux.conf"))
-    time.sleep(0.8)
-    for k in keys:
-        tmux("send-keys", k)
-        time.sleep(0.15)
-    time.sleep(2.6)
+    tmux("new-session", "-d", "-x", "120", "-y", "24",
+         f"{sys.executable} {__file__} --record {out}")
+    tmux("source-file", str(CONF))
+    tmux("split-window", "-h", "cat")   # somewhere for a movement key to go
+    tmux("select-pane", "-t", "1")
+
+    pid, fd = pty.fork()
+    if pid == 0:                         # a real client, on a pty we can type at
+        os.environ["TERM"] = "xterm-256color"
+        os.execvp("tmux", ["tmux", "-L", SOCK, "attach-session"])
+    time.sleep(1.5)
+
+    moves, bad = [], 0
+    for sent, label, want in CASES:
+        before = tmux("display", "-p", "#{pane_index}").stdout.strip()
+        os.write(fd, raw(sent))
+        time.sleep(0.35)
+        after = tmux("display", "-p", "#{pane_index}").stdout.strip()
+        if want is MOVES:
+            ok = before != after
+            moves.append((label, before, after, ok))
+            bad += not ok
+        tmux("select-pane", "-t", "1")
+
+    time.sleep(WINDOW)
     got = out.read_bytes() if out.exists() else b""
     tmux("kill-server")
 
-    # One send-keys, one arrival, in order: split by re-encoding what we expect.
-    bad = 0
-    for k in keys:
-        want = EXPECTED.get(k)
-        want = want and (want.decode("unicode_escape").encode("latin1"))
-        if want is None:
-            print(f"  {k:9} -> {got!r}  (no expectation recorded)")
+    for label, before, after, ok in moves:
+        print(f"  {'ok  ' if ok else 'FAIL'} {label:22} pane {before} -> {after}"
+              f"{'' if ok else '   (did not move)'}")
+    for sent, label, want in CASES:
+        if want is MOVES:
             continue
+        want = raw(want)
         if got.startswith(want):
-            print(f"  ok   {k:9} {want!r}")
+            print(f"  ok   {label:22} pane got {want!r}")
             got = got[len(want):]
         else:
-            print(f"  FAIL {k:9} expected {want!r}, pane got {got!r}")
+            print(f"  FAIL {label:22} expected {want!r}, pane got {got!r}")
             bad += 1
             break
-    print("all keys arrived as expected" if not bad else "KEY HANDLING CHANGED")
+    if got:
+        print(f"  FAIL a bound key leaked into the pane: {got!r}")
+        bad += 1
+    print("every key landed where it should" if not bad else "KEY HANDLING CHANGED")
     return bad
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--read"]:
-        read_keys(sys.argv[2])
+    if sys.argv[1:2] == ["--record"]:
+        record(sys.argv[2])
     else:
-        sys.exit(min(main(sys.argv[1:] or list(EXPECTED)), 1))
+        sys.exit(min(main(), 1))
