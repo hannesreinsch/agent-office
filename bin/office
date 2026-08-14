@@ -1,0 +1,23 @@
+#!/bin/zsh -i
+# office, as a real command on PATH.
+#
+# The office itself is a zsh function, and a function only exists in shells
+# started after it was sourced: the terminal you already had open when you
+# installed says "command not found: office" and keeps saying it until you open
+# a new one. That is the bug this file exists to end. A file on PATH is found by
+# every shell the moment it is there — including ones opened yesterday, and ones
+# that are not zsh at all.
+#
+# zsh looks functions up BEFORE PATH, so a shell that has the function never
+# reaches this file. It runs only where the function is missing, which is
+# exactly where it is needed.
+#
+# -i so your rc runs: your OFFICE_* settings are the same ones your shell has.
+# ponytail: the function's `cd <repo>` cannot follow you home from a subprocess,
+# so this way in leaves you where you stood. Open a new shell to get it back.
+[[ $(whence -w office) == *function ]] || source "${0:A:h:h}/office.zsh"
+[[ $(whence -w office) == *function ]] || {
+  print -u2 "office: ${0:A:h:h}/office.zsh did not load"
+  exit 1
+}
+office "$@"

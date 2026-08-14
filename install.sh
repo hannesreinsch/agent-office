@@ -51,16 +51,36 @@ RC=${ZDOTDIR:-$HOME}/.zshrc
 command -v zsh >/dev/null || { print -u2 " !  zsh is not installed. Install it first."; exit 1 }
 [[ ${SHELL:t} == zsh ]] || warn "your login shell is ${SHELL:t}, not zsh. Start the office with: zsh -ic 'office on'"
 LINE="source $HERE/office.zsh"
-if grep -qF "$LINE" $RC 2>/dev/null; then
+# Ask a real login shell, not the file: plenty of people source office.zsh from
+# a file their .zshrc pulls in, and grepping only this one file would append a
+# second copy every time they re-run the installer.
+if zsh -ic 'whence -w office' 2>/dev/null | grep -q function; then
+  say "already loaded by your zsh startup files"
+elif grep -qF "$LINE" $RC 2>/dev/null; then
   say "already sourced from $RC"
 else
   print "\n# office — one command for a multi-agent tmux cockpit\n$LINE" >> $RC
   say "added to $RC"
 fi
 
+# ...and on PATH, because the line above only reaches shells started after it.
+# Every terminal you already have open would otherwise answer "command not
+# found" until you closed it, which is what this installer used to hand people.
+# A symlink is found by all of them, now.
+BIN=$HOME/.local/bin
+mkdir -p $BIN
+ln -sf $HERE/bin/office $BIN/office
+say "office is a command now: $BIN/office"
+if [[ :$PATH: != *:$BIN:* ]]; then
+  print "\n# office — and everything else you install for yourself\nexport PATH=\"\$HOME/.local/bin:\$PATH\"" >> $RC
+  warn "$BIN was not on your PATH. Added it to $RC — new shells only"
+fi
+
 # --- 2. tmux -----------------------------------------------------------------
 TLINE="source-file $HERE/office.tmux.conf"
-if grep -qF "$TLINE" $HOME/.tmux.conf 2>/dev/null; then
+# ~ and the full path are the same line to tmux, so match both — otherwise a
+# re-run appends a duplicate that re-sources AFTER anything you set yourself.
+if grep -qF -e "$TLINE" -e "source-file ${HERE/#$HOME/~}/office.tmux.conf" $HOME/.tmux.conf 2>/dev/null; then
   say "already sourced from ~/.tmux.conf"
 else
   print "\n# office — bindings and pane borders (colours stay yours)\n$TLINE" >> $HOME/.tmux.conf
@@ -147,4 +167,4 @@ else
 fi
 
 print
-say "done. Open a new shell and run: office on"
+say "done. Run: office on   (here, in any shell you have open — no restart)"
