@@ -97,6 +97,14 @@ _office_attach() {
   else tmux attach-session -t "=$s"; fi
 }
 
+# A tmux server holds the config it read the day it started. Pull the package,
+# move it, or edit a binding, and the server you walk back into is still on the
+# old one — silently, which is worse than an error. Walking in is the moment to
+# re-read it. ~/.tmux.conf and not office.tmux.conf: it sources the package AND
+# the theme, in the order the theme needs (it overrides the pane border, so it
+# has to come second). Same file `Ctrl-Space r` reloads.
+_office_reload_conf() { tmux source-file ~/.tmux.conf 2>/dev/null }
+
 # the BOTTOM desk in the left column: a new session is split off it, so sessions
 # append downwards and their numbers stay in the order you opened them. Splitting
 # the tallest instead would drop session 3 in between 1 and 2.
@@ -708,6 +716,7 @@ _office_open() {                       # <repo-path>
   _office_reap                         # walking in takes the bins out
   _office_update_check
   _office_always_on_up                 # restore whatever `office off` stopped
+  _office_reload_conf                  # the server may be older than the config
   _office_attach "$s"
 }
 
@@ -1146,7 +1155,7 @@ office() {
         return 1
       fi
       git -C "$_OFFICE_HOME" pull --ff-only || return 1
-      tmux source-file "$_OFFICE_HOME/office.tmux.conf" 2>/dev/null
+      _office_reload_conf
       print "updated. The next 'office' command in any shell runs the new version;"
       print "panes already open keep what they are running until you close them." ;;
     renumber)
