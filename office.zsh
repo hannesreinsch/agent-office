@@ -757,7 +757,15 @@ _office_free_wt() {                    # <root> <session> -> a directory, or not
     _office_wt_landed "$root" "$d" || continue
     print -r -- "$d"; return 0
   done
-  while [[ -e $wt/desk-$n ]]; do (( n++ )); done
+  # A free NUMBER is a free directory and a free branch. Removing a worktree
+  # leaves its branch behind — `git worktree remove` does, and so does anything
+  # else that cleans checkouts up — so desk-2's directory can be gone while the
+  # branch is not. Then `worktree add -b desk-2` fails on the branch, this
+  # returns nothing, and the caller falls back to the shared checkout: the exact
+  # collision the whole command exists to prevent, arriving quietly.
+  while [[ -e $wt/desk-$n ]] || git -C "$root" show-ref --quiet --verify "refs/heads/desk-$n"; do
+    (( n++ ))
+  done
   git -C "$root" worktree add -b "desk-$n" "$wt/desk-$n" >/dev/null 2>&1 || return 1
   print -r -- "$wt/desk-$n"
 }
