@@ -72,8 +72,12 @@ exec zsh && office on
 Clone it wherever you like; the installer works out its own path. Examples in
 this README use `~/agent-office`.
 
-The installer adds one line to your `.zshrc` and one to your `.tmux.conf`. That
-is the whole install: **no keyboard map, in any terminal.** Every office key is
+`exec zsh` only because a function needs a shell that has read it — `office`
+also goes on your `PATH` as `~/.local/bin/office`, so the terminals you already
+had open find it too, without being restarted.
+
+The installer adds one line to your `.zshrc`, one to your `.tmux.conf` and that
+symlink. That is the whole install: **no keyboard map, in any terminal.** Every office key is
 either `Shift+arrow` or the `Ctrl-Space` prefix, and every terminal on every OS
 already sends both.
 
@@ -111,11 +115,12 @@ renamed there.
 Windows Terminal needs nothing pasted into it: `Shift+arrow` and `Ctrl-Space`
 are ordinary sequences it already sends.
 
-**A note if you do not use zsh.** `office` is a zsh function, so zsh has to be
-installed, but it does not have to be your login shell: run `zsh` and source it
-there, or add `source /path/to/office.zsh` to a zsh startup file and start your
-day with `zsh -ic 'office on'`. Everything inside the panes is your normal
-shell.
+**A note if you do not use zsh.** zsh has to be installed, because `office` is
+written as a zsh function, but it does not have to be your login shell: the
+installer puts `office` on your `PATH`, and that file runs it in zsh for you.
+Type `office on` in bash or fish and it works. Everything inside the panes is
+your normal shell. The one thing only the function can do is leave your shell
+in the repo it opened, since no subprocess can `cd` for its parent.
 
 **Requires** `tmux` 3.4+, `zsh`, `git`, [`fzf`](https://github.com/junegunn/fzf),
 [`fd`](https://github.com/sharkdp/fd), and an agent CLI such as
