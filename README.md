@@ -263,12 +263,12 @@ live ones for exactly that reason.
 | `office <name>` | open another repo by fuzzy name |
 | `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
 | `office solo` | like `on`, but starts nothing: the panes and nothing in them |
-| `office desk` | one more session |
+| `office desk` | one more session, in the checkout you are in |
 | `office task <what>` | one more session, already working on `<what>` |
-| `office new [wt]` | one more session in its own git worktree |
+| `office new [wt]` | one more session in its own git worktree, created if it is not there yet |
 | `office chat` `shell` `edit` | toggle a right-strip pane |
 | `office sessions` | park or restore the whole left column |
-| `office renumber` | renumber the panes (the tmux hooks call this) |
+| `office renumber` | renumber the panes and redraw the key bar (every office command that changes the panes already does) |
 | `office layout` | rebuild the layout when a pane ends up somewhere wrong |
 | `office hide` / `office show` | park the current pane / bring one back |
 | `office doctor` | what is running and what it costs in RAM, read-only |
@@ -330,7 +330,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `CODE_ROOT` | `~/code` | where `office pick` looks for repos |
 | `OFFICE_SESSION_CMD` | `claude` | **what a session is.** Any agent CLI |
 | `OFFICE_SESSION_LABEL` | `CLAUDE` | what its panes are called |
-| `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees |
+| `OFFICE_WORKTREE_DIR` | `.claude/worktrees` | where `office new` looks for worktrees, and puts the ones it creates |
 | `OFFICE_EDITOR` | `$EDITOR`, else micro/nano/vi | what the editor pane opens files in. Set it to `micro` if `$EDITOR` is vim and you would rather it were not |
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_STRIP_WIDTH` | `32` | percent of the window the right strip takes |
