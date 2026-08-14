@@ -39,6 +39,16 @@ tmux server, and everything has to survive that.
   or degrades to nothing.
 - **`office.tmux.conf` sets no colours.** Not one. A user's theme has to
   survive installation. Anything visual belongs in `theme/`.
+- **A key the office does not bind reaches the pane unchanged.** The office owns
+  Shift-arrow and the Ctrl-Space table; every other key belongs to whatever is
+  running in the pane, including the modified keys ASCII has no byte for
+  (Shift-Enter, Ctrl-Enter). tmux swallows those by default, which is why
+  `extended-keys always` is set — a person should not lose a keystroke that
+  works in every other window just because this one has a layout. Same rule one
+  layer up: the installer names the parent iTerm profile and writes **no**
+  `Keyboard Map`, so a binding you add later is inherited rather than frozen out.
+  Changing key handling means probing what every OTHER key now sends, not just
+  the one you meant to fix.
 - **Nothing destructive without a confirmation**, except `office clean --idle`,
   which exists to be unattended and says so.
 - **Keybindings never print.** Output from a `run-shell` binding makes tmux
@@ -66,6 +76,11 @@ tmux kill-session -t "=$s"; rm -rf "${d:h}"
 
 `OFFICE_SOLO=1` skips the always-on hooks. Always tear the session down, and
 never test against an office you are working in.
+
+Touched anything about keys? Run `bin/key-probe`. It builds its own throwaway
+server on its own socket, presses fourteen keys into a pane and prints the raw
+bytes each one arrived as, so the twenty keys you did not mean to change are
+checked as well as the one you did. It exits non-zero when any of them moved.
 
 Run `zsh -n office.zsh` before you push. It catches most of it.
 

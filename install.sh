@@ -78,8 +78,9 @@ DYN="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
 # It is OVERWRITTEN here, never deleted, and both the filename and the GUID stay
 # what they always were: iTerm remembers your default profile by GUID, and for
 # anyone who followed the old instruction and made "office" their default,
-# removing the file would take their default profile with it. The map the new
-# file carries is theirs alone; office no longer adds a single entry to it.
+# removing the file would take their default profile with it. The new file
+# carries no "Keyboard Map" at all, which is also what drops those retired
+# entries from an existing install.
 if [[ -n $THEME && -d ${DYN:h} ]]; then
   mkdir -p $DYN
   python3 - "$HERE/iterm/office-profile.json" "$DYN/office-keys.json" "$THEME" <<'PROFILE'
@@ -91,9 +92,21 @@ me = prof["Profiles"][0]
 # A dynamic profile does not inherit from the profile you actually use unless it
 # is told to, so a themed office profile would otherwise hand you iTerm's stock
 # keyboard map and lose Natural Text Editing's option-arrow word jump. Name the
-# parent and carry its map across. office adds nothing of its own to it now.
+# parent, which is the whole mechanism: iTerm resolves an unspecified attribute
+# against that profile every time it loads this file.
+#
+# It used to ALSO copy the parent's "Keyboard Map" in here, and that is the bug
+# this file is not allowed to have again. A dynamic profile is rewritten from
+# its JSON on every load, so a copied map is frozen at install time AND
+# uneditable afterwards: a binding you add in iTerm's own settings, or one a
+# tool like `claude /terminal-setup` installs next month, never reaches the
+# office profile and cannot be put there. Naming the parent and writing no map
+# at all gets the inheritance the copy was imitating, live and for ever.
+#
+# The rule, for anything added here later: office may set what office is FOR
+# (its look). Nothing about your keyboard is office's to own.
 pl = pathlib.Path.home()/"Library/Preferences/com.googlecode.iterm2.plist"
-inherited = {}
+parent = None
 if pl.exists():
     try:
         d = plistlib.loads(pl.read_bytes())
@@ -102,23 +115,19 @@ if pl.exists():
             # Skip ourselves: once you follow the printed instruction and make
             # "office" the default, a re-run would otherwise parent it to itself.
             if b.get("Guid") == guid and guid != me.get("Guid"):
-                inherited = dict(b.get("Keyboard Map") or {})
-                me["Dynamic Profile Parent Name"] = b.get("Name")
+                parent = b.get("Name")
     except Exception:
         pass
 
-# ...and once "office" IS your default there is no other profile left to read,
-# so the answer is whatever the last run already worked out.
-if not inherited and dst.exists():
+# ...and once "office" IS your default there is no other profile to point at,
+# so keep whatever the last run worked out. "Default" is the last resort: iTerm
+# always has one by that name.
+if not parent and dst.exists():
     try:
-        prev = json.loads(dst.read_text())["Profiles"][0]
-        inherited = dict(prev.get("Keyboard Map") or {})
-        if prev.get("Dynamic Profile Parent Name"):
-            me["Dynamic Profile Parent Name"] = prev["Dynamic Profile Parent Name"]
+        parent = json.loads(dst.read_text())["Profiles"][0].get("Dynamic Profile Parent Name")
     except Exception:
         pass
-
-me["Keyboard Map"] = inherited
+me["Dynamic Profile Parent Name"] = parent or "Default"
 
 # The look merges on top of whatever the parent profile already gives you;
 # anything not in the file stays yours.
@@ -126,7 +135,7 @@ me.update({k: v for k, v in json.loads(pathlib.Path(theme).read_text()).items()
            if not k.startswith("_")})
 
 dst.write_text(json.dumps(prof, indent=2) + "\n")
-print(f"    {len(inherited)} of your own key mappings carried over untouched")
+print(f"    keys inherited live from your \"{me['Dynamic Profile Parent Name']}\" profile, none written")
 print("    palette, transparency and blur applied")
 PROFILE
   say "iTerm2 profile written: $DYN/office-keys.json (look only, no key entries)"
