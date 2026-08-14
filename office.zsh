@@ -10,9 +10,9 @@
 #   office pick       fuzzy-pick from all your repos
 #   office solo       like `on`, but start nothing but the tabs
 #
-#   office desk       add another session to the left column         (^Sn)
-#   office task ...   ...and start it on a task straight away
-#   office new [wt]   ...the same, but in its own git worktree
+#   office new [wt]   another session, in its OWN git worktree           (^Sn)
+#   office task ...   another session, started on a task straight away
+#   office desk       another session in THIS checkout, when you mean it
 #   office chat       toggle the chat pane                           (^Sc)
 #   office shell      toggle the shell pane                          (^Ss)
 #   office edit       toggle the editor pane                         (^Se)
@@ -564,6 +564,25 @@ _office_say() {
   tmux display-message " office: $1" 2>/dev/null || print -u2 "office: $1"
 }
 
+# Is a session ALREADY running in this checkout? Two agents in one is the single
+# way this layout bites: same branch, same files, each committing over the other,
+# and nothing on screen says so — both borders read CLAUDE and both are right.
+# It is a legitimate thing to want (one reading while one writes), so the callers
+# say it and none of them block.
+#
+# :A on both sides, because tmux answers with the path symlinks resolve to while
+# the caller's is whatever git printed. /tmp alone is enough to make two names
+# for one directory look like two, and then this never fires in the exact case
+# it exists for.
+_office_desk_in() {                    # <session> <dir>
+  local p want=${2:A}
+  for p in ${(f)"$(tmux list-panes -t "=$1" -F "#{@office_kind}|#{pane_current_path}" 2>/dev/null)"}; do
+    [[ $p == CLAUDE\|* && ${${p#CLAUDE|}:A} == $want ]] && return 0
+  done
+  return 1
+}
+_OFFICE_SHARED_MSG="2nd session in the same checkout — 'office new <name>' gives one its own worktree"
+
 # the visible pane of a given kind, if it is on screen at all
 _office_pane_of_kind() {               # <session> <kind>
   tmux list-panes -t "=$1" -F '#{pane_id}|#{@office_kind}' 2>/dev/null \
@@ -692,22 +711,124 @@ _office_open() {                       # <repo-path>
   _office_attach "$s"
 }
 
+# Has this worktree's branch LANDED — is every change on it already in the branch
+# the repo merges into?
+#
+# The obvious test is whether its commits are ancestors of the default branch,
+# and that test is wrong for any repo that squash-merges: a squash rewrites the
+# branch's commits into one new commit, so the originals stay un-ancestored
+# forever and every branch that ever landed still reads as unfinished. Merging
+# the branch in memory and asking whether the RESULT differs from the default
+# branch's tree answers the content question instead, which is what "finished"
+# actually means.
+#
+# Fail-safe in the do-not-reuse direction: an unreadable ref, a conflict, or a
+# git older than 2.38 (no `merge-tree --write-tree`) all say no, and the caller
+# makes a new worktree instead of walking an agent into someone else's branch.
+_office_wt_landed() {                  # <root> <worktree>
+  local root=$1 d=$2 base branch merged tree
+  branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 1
+  [[ -n $branch && $branch != HEAD ]] || return 1          # detached: not ours to judge
+  base=$(git -C "$root" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+  base=${base#*/}
+  [[ -n $base ]] || base=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  [[ -n $base && $base != $branch ]] || return 1
+  [[ $(git -C "$root" rev-list --count "$base..$branch" 2>/dev/null) == 0 ]] && return 0
+  merged=$(git -C "$root" merge-tree --write-tree "$base" "$branch" 2>/dev/null | head -1) || return 1
+  tree=$(git -C "$root" rev-parse "$base^{tree}" 2>/dev/null)
+  [[ -n $merged && $merged == $tree ]]
+}
+
+# Which worktree an unnamed extra desk gets. The first one nobody is sitting in
+# and nobody left anything in, else a fresh desk-N. Reuse first, because a key
+# you press several times a day that creates a directory every time is a key
+# that fills your repo with them.
+#
+# "Left anything in" is the same two questions a session-worktree sweep asks
+# before deleting one — uncommitted files, then unlanded commits — so a worktree
+# this reuses is exactly a worktree such a sweep would consider finished. Same
+# predicate, opposite verb.
+_office_free_wt() {                    # <root> <session> -> a directory, or nothing
+  local root=$1 s=$2 wt="$1/$OFFICE_WORKTREE_DIR" d n=2
+  git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 1
+  for d in $wt/*(N/); do
+    _office_desk_in "$s" "$d" && continue
+    [[ -n $(git -C "$d" status --porcelain 2>/dev/null) ]] && continue
+    _office_wt_landed "$root" "$d" || continue
+    print -r -- "$d"; return 0
+  done
+  # A free NUMBER is a free directory and a free branch. Removing a worktree
+  # leaves its branch behind — `git worktree remove` does, and so does anything
+  # else that cleans checkouts up — so desk-2's directory can be gone while the
+  # branch is not. Then `worktree add -b desk-2` fails on the branch, this
+  # returns nothing, and the caller falls back to the shared checkout: the exact
+  # collision the whole command exists to prevent, arriving quietly.
+  while [[ -e $wt/desk-$n ]] || git -C "$root" show-ref --quiet --verify "refs/heads/desk-$n"; do
+    (( n++ ))
+  done
+  git -C "$root" worktree add -b "desk-$n" "$wt/desk-$n" >/dev/null 2>&1 || return 1
+  print -r -- "$wt/desk-$n"
+}
+
 _office_new() {                        # [worktree-name] -> extra session
-  local root wt dir label
+  local root wt dir label s
   root=$(_office_root "$PWD"); wt="$root/$OFFICE_WORKTREE_DIR"
+
+  s=$(_office_here)
+  tmux has-session -t "=$s" 2>/dev/null \
+    || { _office_say "no office open — run 'office on' first"; return 0 }
+  # The cap belongs here too. Only _office_add_pane counted, so this command
+  # walked past it and split a fifth desk into a column sized for four — and it
+  # is the door Ctrl-Space n uses now. Asked before anything is created, so a
+  # full column never leaves a worktree behind for a pane that never opened.
+  if (( $(_office_desk_count "$s") >= _OFFICE_MAX_DESKS )); then
+    _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Space q"
+    return 0
+  fi
+
   if [[ -z $1 ]]; then
-    dir=$( { print -r -- "$root"; [[ -d $wt ]] && fd --type d --max-depth 1 . "$wt" 2>/dev/null; } \
-           | sed 's|/$||' | fzf --prompt='session in> ' --height=40% --reverse) || return
+    # Typed in a shell, the picker asks. From a keybinding there is no terminal
+    # to ask on and a prompt on the status bar is the thing this project already
+    # threw out, so it takes a free worktree or makes one.
+    if [[ -t 1 ]]; then
+      dir=$( { print -r -- "$root"; [[ -d $wt ]] && fd --type d --max-depth 1 . "$wt" 2>/dev/null; } \
+             | sed 's|/$||' | fzf --prompt='session in> ' --height=40% --reverse) || return
+    else
+      dir=$(_office_free_wt "$root" "$s")
+      # Nothing git could give: not a repo, no commit to branch from, a worktree
+      # that would not add. The key still has to open a session — a key that
+      # does nothing reads as broken — so it opens one here, and the line at the
+      # bottom says what sharing a checkout means.
+      [[ -n $dir ]] || dir=$root
+    fi
   elif [[ -d $wt/$1 ]]; then dir="$wt/$1"
   elif [[ -d $1 ]];    then dir=$(cd "$1" && pwd)
-  else print -u2 "office: no worktree or directory '$1'"; return 1
+  else
+    # No worktree by that name yet, so make one. This used to be an error, and
+    # the error was the whole problem: the one command that promises a session
+    # which cannot collide with the others worked only if some OTHER tool had
+    # already created the checkout. So you went back to the shell, and the
+    # cheaper thing to type is another session in the repo you are already in —
+    # which is exactly the collision, two agents committing over each other on
+    # one branch. Creating is additive: a branch and a directory, nothing
+    # touched in the checkout you are standing in.
+    git -C "$root" rev-parse --git-dir >/dev/null 2>&1 \
+      || { print -u2 "office: no directory '$1', and $root is not a git repo"; return 1 }
+    dir="$wt/$1"
+    # -b first (a new branch off HEAD, the usual case); without it when the
+    # branch already exists and you are picking it up in a fresh checkout.
+    git -C "$root" worktree add -b "$1" "$dir" 2>/dev/null \
+      || git -C "$root" worktree add "$dir" "$1" \
+      || { print -u2 "office: could not create worktree '$1'"; return 1 }
+    print -r -- "office: new worktree $dir"
   fi
   label=$(basename "$dir")
   [[ $dir == "$root" ]] && label="$OFFICE_SESSION_LABEL" || label="$OFFICE_SESSION_LABEL · $label"
 
-  local s; s=$(_office_here)
-  tmux has-session -t "=$s" 2>/dev/null \
-    || { _office_say "no office open — run 'office on' first"; return 0 }
+  # Picking the repo root out of the picker lands in the checkout a session is
+  # usually already in, which is the collision this command exists to avoid.
+  local shared=0
+  _office_desk_in "$s" "$dir" && shared=1
 
   # split the tallest desk in the left column, so agents stack down the left and
   # the right strip keeps its width
@@ -715,6 +836,12 @@ _office_new() {                        # [worktree-name] -> extra session
   newp=$(tmux split-window -v -t "$(_office_desk_pane "$s")" -c "$dir" -P -F '#{pane_id}' "$OFFICE_SESSION_CMD$_OFFICE_DESK_END")
   _office_label "$newp" "$label" CLAUDE
   _office_even_desks "$s"
+  # `_office_add_pane` has always ended this way and this one did not, so a desk
+  # opened by `office new` sat there with a blank number on its border and a key
+  # bar still describing the pane set from before it existed — until some other
+  # office command happened to renumber. Nothing calls renumber on a timer.
+  _office_number "$s"
+  (( shared )) && _office_say "$_OFFICE_SHARED_MSG"
   # not inside tmux and not on a terminal (a run-shell keybinding) — nothing to attach to
   [[ -n $TMUX || ! -t 1 ]] || _office_attach "$s"
 }
@@ -732,12 +859,17 @@ _office_add_pane() {                   # <label> <command> [dir] [kind]
     _office_say "left column is full ($_OFFICE_MAX_DESKS sessions) — close one with Ctrl-Space q"
     return 0
   fi
+  # Asked BEFORE the split and said after, so it is the last thing on the status
+  # line rather than something the relayout overwrites.
+  local shared=0
+  [[ $(_office_rank "$kind") == 9 ]] && _office_desk_in "$s" "$dir" && shared=1
   slot=($(_office_place "$s" "$kind"))
   newp=$(tmux split-window ${slot[2,-1]} -t "${slot[1]}" -c "$dir" -P -F '#{pane_id}' "$2") || return 1
   _office_label "$newp" "$1" "$kind"
   _office_layout_ok "$s" || _office_relayout "$s"
   _office_even_column "$s" left; _office_even_column "$s" right
   _office_number "$s"
+  (( shared )) && _office_say "$_OFFICE_SHARED_MSG"
   # not inside tmux and not on a terminal (a run-shell keybinding) — nothing to attach to
   [[ -n $TMUX || ! -t 1 ]] || _office_attach "$s"
 }
@@ -872,7 +1004,7 @@ _office_help() {
   print -P "${g}THE KEYS${r} ${d}— two rules, and the second one covers everything${r}"
   print -P "  ${g}Shift-←↑↓→${r}         move between panes"
   print -P "  ${d}...and Ctrl-Space, then one letter:${r}"
-  print -P "  ${g}n${r}    a new session            ${d}left column, max 4${r}"
+  print -P "  ${g}n${r}    a new session            ${d}its own worktree, left column, max 4${r}"
   print -P "  ${g}c${r}    toggle the CHAT          ${g}s${r}  toggle the SHELL"
   print -P "  ${g}e${r}    toggle the FILE EDITOR   ${g}a${r}  park/restore ALL sessions"
   print -P "  ${g}q${r}    CLOSE this pane          ${g}x${r}  park it, still running"
@@ -888,13 +1020,14 @@ _office_help() {
 ${r}"
 
   print -P "${g}RUNNING SEVERAL AGENTS${r} ${d}— the whole point of this setup${r}"
-  print -P "  ${g}office new${r}     One more session, in its OWN git worktree, as a new pane."
-  print -P "                 ${d}Run it 2-4x — the left column splits evenly. Each${r}"
-  print -P "                 ${d}agent edits a separate checkout, so they never collide.${r}"
-  print -P "  ${g}office new X${r}   Same, straight into worktree X."
+  print -P "  ${g}Ctrl-Space n${r}   One more session, in its OWN git worktree — a free one, or a"
+  print -P "                 ${d}new desk-N. Press it 2-4x: the left column splits evenly and${r}"
+  print -P "                 ${d}each agent edits a separate checkout, so they never collide.${r}"
+  print -P "  ${g}office new X${r}   Straight into worktree X — created if it is not there yet."
   print -P "  ${g}office task X${r}  A new session already working on X."
-  print -P "  ${g}office desk${r}    One more session in THIS repo, straight into the left column."
-  print -P "                 ${d}Ctrl-Space a does the same. Four desks is the cap.${r}"
+  print -P "  ${g}office desk${r}    One more session in THIS checkout, when you mean it: two"
+  print -P "                 ${d}agents on one branch, which the status line says out loud.${r}"
+  print -P "                 ${d}Four desks is the cap, whichever door you use.${r}"
   print -P "  ${g}office edit${r}    Toggle the FILE EDITOR pane — fuzzy-pick a file, edit it in place."
   print -P "                 ${d}Ctrl-S saves · Ctrl-Z undo · mouse works.${r}"
   print -P "                 ${d}Ctrl-Q closes the FILE and returns you to the list;${r}"

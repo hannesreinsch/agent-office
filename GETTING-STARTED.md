@@ -162,6 +162,13 @@ instead of hiding it.
 the left column evenly, and each one is a separate conversation working on a
 separate thing.
 
+Each one also gets **its own checkout** — a git worktree under
+`.claude/worktrees/`, made for it if there is not a free one already. Without
+that, two agents edit the same files on the same branch and commit over each
+other, and nothing on screen tells you: both panes say CLAUDE and both are
+right. Merge a worktree's branch when you are happy with it, the way you would
+any branch.
+
 This is the actual point of the tool. One agent refactoring while another writes
 tests, and you moving between them.
 
