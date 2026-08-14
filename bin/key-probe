@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""What does a pane actually receive when a key is pressed?
+
+Run it after ANY change to key handling. It builds a throwaway tmux server with
+office.tmux.conf loaded, sends each key into a pane, and prints the raw bytes
+that arrived. The point is not the key you meant to change; it is the other
+twenty, which must come out byte-identical to the line printed as EXPECTED.
+
+    bin/key-probe                 # the default key set
+    bin/key-probe S-Enter Tab     # only these
+
+Its own server, its own socket: it cannot touch an office you are working in.
+"""
+import os, pathlib, select, subprocess, sys, tempfile, termios, time, tty
+
+HERE = pathlib.Path(__file__).resolve().parent.parent
+SOCK = "office-key-probe"
+
+# What each key MUST still send. The two extended ones are the whole reason
+# `extended-keys always` is set; every other row is what must not have moved.
+EXPECTED = {
+    "S-Enter": rb"\x1b[27;2;13~", "C-Enter": rb"\x1b[27;5;13~",
+    "Enter": rb"\r", "Tab": rb"\t", "BSpace": rb"\x7f", "Escape": rb"\x1b",
+    "Space": b" ", "a": b"a", "A": b"A",
+    "C-c": rb"\x03", "C-a": rb"\x01", "C-d": rb"\x04",
+    "S-Left": rb"\x1b[1;2D", "S-Right": rb"\x1b[1;2C",
+}
+
+
+def read_keys(out):
+    """Inside the pane: report every byte that lands here in three seconds."""
+    fd, old = sys.stdin.fileno(), termios.tcgetattr(sys.stdin.fileno())
+    tty.setraw(fd)
+    buf, t = b"", time.time()
+    while time.time() - t < 3:
+        if select.select([fd], [], [], 0.2)[0]:
+            buf += os.read(fd, 128)
+    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    pathlib.Path(out).write_bytes(buf)
+
+
+def tmux(*a):
+    return subprocess.run(["tmux", "-L", SOCK, *a], capture_output=True, text=True)
+
+
+def main(keys):
+    out = pathlib.Path(tempfile.mkdtemp()) / "keys"
+    tmux("kill-server")
+    tmux("new-session", "-d", "-x", "80", "-y", "24",
+         f"{sys.executable} {__file__} --read {out}")
+    tmux("source-file", str(HERE / "office.tmux.conf"))
+    time.sleep(0.8)
+    for k in keys:
+        tmux("send-keys", k)
+        time.sleep(0.15)
+    time.sleep(2.6)
+    got = out.read_bytes() if out.exists() else b""
+    tmux("kill-server")
+
+    # One send-keys, one arrival, in order: split by re-encoding what we expect.
+    bad = 0
+    for k in keys:
+        want = EXPECTED.get(k)
+        want = want and (want.decode("unicode_escape").encode("latin1"))
+        if want is None:
+            print(f"  {k:9} -> {got!r}  (no expectation recorded)")
+            continue
+        if got.startswith(want):
+            print(f"  ok   {k:9} {want!r}")
+            got = got[len(want):]
+        else:
+            print(f"  FAIL {k:9} expected {want!r}, pane got {got!r}")
+            bad += 1
+            break
+    print("all keys arrived as expected" if not bad else "KEY HANDLING CHANGED")
+    return bad
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--read"]:
+        read_keys(sys.argv[2])
+    else:
+        sys.exit(min(main(sys.argv[1:] or list(EXPECTED)), 1))

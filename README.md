@@ -369,6 +369,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
 | one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
+| Shift-Enter submits instead of making a line break, and does the right thing outside the office | an old `office.tmux.conf`. `office update`, then `Ctrl-Space r`. tmux drops the modifier on any key ASCII has no byte for unless it is told not to; the office tells it |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space q`, reopen with `Ctrl-Space c` |
 | `Ctrl-Space w` does nothing | `w` is gone: it is `Ctrl-Space q` now, and it is the only close key |
 | need an image in a task | `Ctrl-Space n`, then paste into your agent's own prompt |
