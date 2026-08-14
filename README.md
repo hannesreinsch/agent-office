@@ -146,7 +146,7 @@ Everything else is **`Ctrl-Space`, then one letter**:
 
 | | |
 |---|---|
-| `n` | new session |
+| `n` | new session, in its own git worktree |
 | `c` `s` `e` | toggle chat / shell / file editor. On a pane that quit whatever it was running, the same key restarts it |
 | `a` | park every session, bring them all back, or open one if there are none |
 | `q` | close this pane |
@@ -263,9 +263,9 @@ live ones for exactly that reason.
 | `office <name>` | open another repo by fuzzy name |
 | `office pick` | fuzzy-pick from every repo under `$CODE_ROOT` |
 | `office solo` | like `on`, but starts nothing: the panes and nothing in them |
-| `office desk` | one more session, in the checkout you are in |
+| `office new [wt]` | one more session in its own git worktree — `Ctrl-Space n`. A free one, or a new `desk-N`, or the worktree you name, created if it is not there yet |
 | `office task <what>` | one more session, already working on `<what>` |
-| `office new [wt]` | one more session in its own git worktree, created if it is not there yet |
+| `office desk` | one more session in THIS checkout, when you mean it |
 | `office chat` `shell` `edit` | toggle a right-strip pane |
 | `office sessions` | park or restore the whole left column |
 | `office renumber` | renumber the panes and redraw the key bar (every office command that changes the panes already does) |
@@ -390,6 +390,20 @@ terminal support beyond `Shift+arrow` and `Ctrl-Space`. Reload with
 not re-read the config: `tmux source-file ~/.tmux.conf`.
 
 ## Details worth knowing
+
+**Desk 1 is the checkout you opened. Every extra desk gets its own worktree.**
+`Ctrl-Space n` takes a free worktree under `.claude/worktrees/` — nobody
+sitting in it, nothing uncommitted, nothing on its branch that has not landed
+in the default branch — or makes `desk-2`, `desk-3` when there is none. "Landed"
+is asked by merging the branch in memory and comparing trees, not by ancestry,
+so a **squash-merged** branch reads as finished instead of unfinished forever.
+Anything git cannot answer means "not free", and you get a new worktree rather
+than an agent dropped into somebody's branch. That is the
+whole point of running several agents at once: they edit separate checkouts, so
+two of them cannot land on one branch and commit over each other. When git
+cannot give one (not a repo, no commit to branch from) the session still opens,
+in the checkout you are in, and the status line says so. `office desk` is that
+on purpose, and says it too.
 
 **Pane numbers are ours, not tmux's.** tmux numbers panes by their position in
 the layout tree, which moving a pane leaves in an order your eye disagrees with
@@ -566,8 +580,8 @@ listed above.
   and writes `office-keys.json` into iTerm2's DynamicProfiles folder — the same
   file the retired chords used to live in, now overwritten without them
 
-**What can destroy something.** Every destructive action is a tmux operation,
-so the blast radius is panes and sessions, never files:
+**What can destroy something.** Nothing here deletes a file. Every destructive
+action is a tmux operation, so the blast radius is panes and sessions:
 
 | | |
 |---|---|
@@ -576,6 +590,15 @@ so the blast radius is panes and sessions, never files:
 | `office off` | quits every office, lists what it will do and asks first |
 | `office clean` | you pick the panes, Esc closes nothing |
 | `office clean --idle` | **no confirmation, by design.** It is the unattended form |
+
+**The one thing that writes to disk** is `Ctrl-Space n` / `office new`: it runs
+`git worktree add` under `.claude/worktrees/`, which adds a directory and a
+branch and changes nothing in the checkout you are standing in. It reuses a
+worktree that is free — nobody sitting in it, nothing uncommitted, nothing on
+its branch that has not landed — before making another, and it never
+removes one. Deleting a worktree is `git worktree remove <path>`, yours to run,
+because a checkout an agent worked in is exactly the thing you do not want a
+window manager throwing away.
 
 The three `OFFICE_ALWAYS_ON_*` variables are evaluated as shell, because that
 is what they are for. They come from your own config, so treat them the way you
