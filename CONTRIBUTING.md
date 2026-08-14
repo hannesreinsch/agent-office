@@ -77,10 +77,15 @@ tmux kill-session -t "=$s"; rm -rf "${d:h}"
 `OFFICE_SOLO=1` skips the always-on hooks. Always tear the session down, and
 never test against an office you are working in.
 
-Touched anything about keys? Run `bin/key-probe`. It builds its own throwaway
-server on its own socket, presses fourteen keys into a pane and prints the raw
-bytes each one arrived as, so the twenty keys you did not mean to change are
-checked as well as the one you did. It exits non-zero when any of them moved.
+Touched anything about keys? Run `bin/key-probe`. It builds a throwaway office
+on its own socket, attaches a REAL client on a pty and types raw bytes at it,
+then checks both halves at once: a bound key moves you and never reaches the
+pane, every other key reaches the pane byte for byte. The keys worth checking
+are the twenty you did not mean to change. It exits non-zero if any moved.
+
+`tmux send-keys` cannot stand in for that client: it writes to the pane's tty
+and never consults a key table, so Shift-Left looks broken under send-keys and
+is perfectly fine for a human.
 
 Run `zsh -n office.zsh` before you push. It catches most of it.
 
