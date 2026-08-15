@@ -1,0 +1,97 @@
+#!/usr/bin/env zsh
+# zoom-probe — zoom a pane, then run the office. Is it still a room?
+#
+# Run it after ANY change to the layout functions. It builds a throwaway office
+# on its own tmux server, zooms a pane, and runs every command that moves one.
+#
+# What it is looking for: tmux reports a ZOOMED pane at full-window coordinates,
+# so `pane_left` and `pane_top` — which is how this package decides what belongs
+# in which column — describe a room that is not on screen. Before the guard in
+# `_office_unzoom`, zooming the shell and pressing any office key was enough for
+# `_office_layout_ok` to call the office broken and `_office_relayout` to break
+# every pane out to the stash and rejoin it, from a lie. You unzoomed and one
+# pane was left.
+#
+#     bin/zoom-probe
+#
+# Exits non-zero the moment a command leaves the window zoomed, drops a pane, or
+# returns a shape `_office_layout_ok` does not recognise as an office.
+emulate -L zsh
+# no err_return: every step here is checked explicitly, and a probe that stops
+# at the first non-zero return stops inside the code it is testing.
+
+export TMUX_TMPDIR=$(mktemp -d)        # its own server, never yours
+export OFFICE_SOLO=1
+export OFFICE_SESSION_CMD='exec zsh' OFFICE_CHAT_CMD='exec zsh' OFFICE_CHAT_OPEN=1
+export OFFICE_DEFAULT_DESKS=2
+repo=$(mktemp -d)/probe; mkdir -p "$repo"; git -C "$repo" init -q
+
+here=${0:A:h}
+source "$here/../office.zsh"
+# nothing on this run may touch the machine it runs on, or the terminal it was
+# started from: no attach, no update check, no always-on stack, no ~/.tmux.conf.
+_office_attach(){ : }; _office_update_check(){ : }; _office_reap(){ : }
+_office_always_on_up(){ : }; _office_reload_conf(){ : }; _office_say(){ : }
+
+cleanup() { tmux kill-server 2>/dev/null; rm -rf "$TMUX_TMPDIR" "${repo:h}" }
+trap cleanup EXIT INT TERM
+
+fail=0
+cd "$repo"
+_office_open "$repo" >/dev/null 2>&1
+s=$(_office_sessname "$repo")
+sleep 1
+
+panes()  { tmux list-panes -t "=$s" -F '#{pane_id}' 2>/dev/null | wc -l | tr -d ' ' }
+zoomed() { tmux list-windows -t "=$s" -F '#{window_zoomed_flag}' 2>/dev/null | head -1 }
+pane_of() { tmux list-panes -t "=$s" -F '#{@office_kind} #{pane_id}' | awk -v k="$1" '$1==k {print $2; exit}' }
+# resize-pane -Z TOGGLES. A step that left the window zoomed would otherwise
+# unzoom it here, and every step after it would pass while testing nothing.
+zoom_on() { tmux select-pane -t "$1" 2>/dev/null; [[ $(zoomed) == 1 ]] || tmux resize-pane -Z -t "$1"; [[ $(zoomed) == 1 ]] }
+
+# <what> <expected pane count> — the whole contract, in one place.
+check() {
+  local what=$1 want=$2 got=$(panes) z=$(zoomed) ok=1
+  [[ $z == 1 ]] && { print -u2 "  FAIL $what: still zoomed"; ok=0 }
+  [[ $got == $want ]] && : || { print -u2 "  FAIL $what: $got panes, expected $want"; ok=0 }
+  _office_layout_ok "$s" || { print -u2 "  FAIL $what: not an office shape"; ok=0
+    tmux list-panes -t "=$s" -F '    #{@office_kind} l=#{pane_left} t=#{pane_top}' >&2 }
+  (( ok )) && print "  ok   $what" || fail=1
+}
+
+print "office built: $(panes) panes"
+check "baseline" 5
+
+# The one geometry read whose wrong answer is destructive: it decides whether
+# _office_relayout breaks every pane out to the stash and rejoins it. A zoomed
+# strip pane reports left 0, which used to make a perfectly good office look
+# broken to it.
+zoom_on "$(pane_of SHELL)" || { print -u2 "  FAIL: could not zoom the shell"; fail=1 }
+if _office_layout_ok "$s"; then print "  ok   _office_layout_ok (zoomed)"
+else print -u2 "  FAIL _office_layout_ok (zoomed): called a good office broken"; fail=1 fi
+
+# Every verb that moves a pane, each one run with a pane zoomed first. The
+# zoomed pane is the SHELL on purpose: it lives in the right strip, and under
+# zoom it claims the left column's coordinates, which is the exact lie.
+for verb in renumber layout edit edit chat desk; do
+  zoom_on "$(pane_of SHELL)" || { print -u2 "  FAIL: could not zoom for '$verb'"; fail=1; continue }
+  before=$(panes)
+  office $verb >/dev/null 2>&1 || true
+  case $verb in
+    edit|chat) want=$(( before == 5 ? 4 : 5 )) ;;   # a toggle: parks or restores
+    desk)      want=$(( before + 1 )) ;;
+    *)         want=$before ;;
+  esac
+  check "office $verb (zoomed)" $want
+done
+
+# ...and parking the pane you are zoomed into, which is the key most likely to
+# be pressed while zoomed.
+p=$(pane_of CLAUDE)
+zoom_on "$p" || { print -u2 "  FAIL: could not zoom the desk"; fail=1 }
+before=$(panes)
+office hide "$p" >/dev/null 2>&1 || true
+check "office hide (the zoomed pane)" $(( before - 1 ))
+
+(( fail )) && { print -u2 "\nzoom-probe FAILED"; exit 1 }
+print "\nzoom-probe passed"

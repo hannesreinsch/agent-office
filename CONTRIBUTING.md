@@ -97,6 +97,14 @@ hidden copy mode it opened. And a double-click cannot be read back for a full
 second: tmux holds it for its own 500ms triple-click window before the binding
 starts, so a check that looks sooner reports a working gesture as broken.
 
+Touched anything that reads `pane_left`, `pane_top` or a window size? Run
+`bin/zoom-probe`. It builds a throwaway office, zooms a pane, and runs every
+command that moves one. **A zoomed pane reports full-window coordinates**, so
+every "which column is this in" question in `office.zsh` is answered about a
+room that is not on screen — and `_office_layout_ok` then calls a perfectly good
+office broken and hands it to `_office_relayout`, which breaks every pane out to
+the stash. Reading the code does not show you this; the probe does.
+
 Run `zsh -n office.zsh` before you push. It catches most of it.
 
 ## Reporting a bug
