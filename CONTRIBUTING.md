@@ -87,6 +87,16 @@ are the twenty you did not mean to change. It exits non-zero if any moved.
 and never consults a key table, so Shift-Left looks broken under send-keys and
 is perfectly fine for a human.
 
+Touched the mouse or copy mode? Run `bin/mouse-probe`. Same throwaway office and
+same real client, but it writes raw SGR mouse bytes: a drag has to land on the
+clipboard in every pane kind, and Escape and a click have to get you out of copy
+mode. Two things it catches that reading the config does not. Cancelling copy
+mode on a click must wait for the mouse *release* and must skip a selection
+already in flight, or a double-click loses its word and strands the pane in the
+hidden copy mode it opened. And a double-click cannot be read back for a full
+second: tmux holds it for its own 500ms triple-click window before the binding
+starts, so a check that looks sooner reports a working gesture as broken.
+
 Run `zsh -n office.zsh` before you push. It catches most of it.
 
 ## Reporting a bug

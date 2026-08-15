@@ -104,6 +104,11 @@ a lot and the pane feels cramped, that is the key.
 in the shell and in the file editor both. No Cmd+C, no copy mode, nothing to
 press after it.
 
+**And if a pane stops taking what you type, click in it.** Scrolling back puts a
+pane in tmux's copy mode, where the arrows move a cursor through history instead
+of your cursor on the line. A click puts you back at the live prompt, and so
+does Escape.
+
 That second one is the pattern for everything that is not movement: **press
 Ctrl+Space, let go, then press a letter.** It is two keystrokes rather than a
 three-finger chord, and unlike a chord it works in every terminal on every
@@ -222,6 +227,7 @@ And the mouse, with no key at all:
 |---|---|
 | drag across text | it is on the clipboard when you let go, nothing to press |
 | double-click a word | the same, for one word |
+| click in a pane that scrolled | back at the live prompt, typing again (Escape does it too) |
 
 Each pane's top border shows the key that acts on it, and the bar along the
 bottom lists the rest. **Whatever is bright on that bar is closed.**

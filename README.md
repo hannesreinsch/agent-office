@@ -227,6 +227,16 @@ The mouse does one thing here, and it is **copying**. Drag across text and it is
 on the system clipboard when you let go; a double-click takes the word under it.
 Nothing to press afterwards, in the shell and in the file editor both.
 
+**And you can always get back to the prompt.** Scrolling a pane back puts it in
+tmux's copy mode, where the arrows walk a cursor through scrollback and nothing
+you type reaches the shell. A **click** puts you back at the live prompt, and so
+does **Escape**. Both of those did nothing at all until 2026-08-15 — tmux binds
+Escape to clearing a selection you do not have, and a click to focusing a pane
+you are already in, so both failed silently and `q` was the only way out. A pane
+that had merely scrolled looked like a terminal that had died, and the drag that
+copies out of it looked broken too, because copying snaps the view back to the
+bottom and the jump reads as nothing having happened.
+
 The rule is that **an app that asked for the mouse keeps it.** A drag inside
 `htop` or `lazygit` is theirs, a double-click still opens the file you hit in
 the file list and still places a cursor in an open file.
@@ -373,7 +383,7 @@ Nothing here ever needs a reboot. In rough order of how often you will want them
 | what you see | what to do |
 |---|---|
 | changed a setting, want it live | `Ctrl-Space r`, or `tmux source-file ~/.tmux.conf` |
-| one pane's keys do nothing, the others are fine | it is in tmux copy-mode. Press `q` |
+| one pane's keys do nothing, the arrows walk a cursor around, the others are fine | it scrolled into copy-mode. **Click in it, or press Escape.** Until 2026-08-15 only `q` did that and nothing on screen said so, so the pane read as dead |
 | Shift-Enter submits instead of making a line break, and does the right thing outside the office | an old `office.tmux.conf`. `office update`, then `Ctrl-Space r`. tmux drops the modifier on any key ASCII has no byte for unless it is told not to; the office tells it |
 | changed `OFFICE_CHAT_CMD`, the pane is unchanged | close it with `Ctrl-Space q`, reopen with `Ctrl-Space c` |
 | `Ctrl-Space w` does nothing | `w` is gone: it is `Ctrl-Space q` now, and it is the only close key |

@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Move the mouse at a real tmux client. Did the text land on the clipboard,
+and can you type again afterwards?
+
+Run it after ANY change to the mouse or copy-mode bindings. It builds a
+throwaway office on its own socket, attaches a client on a pty it can write raw
+SGR mouse bytes into, and checks the two things a pane owes you:
+
+  - a drag copies what you crossed, in every pane kind
+  - you are never stranded in copy mode: Escape and a click both put you back
+    at the live prompt
+
+Both of those failed SILENTLY before this existed. `q` was the only way out of
+copy mode and nothing on screen said so, so a pane that had scrolled looked
+like a terminal that had died.
+
+    bin/mouse-probe
+
+`tmux send-keys` cannot do this job for the same reason it cannot probe keys:
+it writes to the pane's tty and never consults a key table. Only real mouse
+bytes at a real client test what a hand does.
+"""
+import os, pathlib, pty, subprocess, sys, tempfile, time
+
+SOCK = "office-mouse-probe"
+CONF = pathlib.Path(__file__).resolve().parent.parent / "office.tmux.conf"
+
+# An app that has turned mouse reporting on, so #{mouse_any_flag} is 1. The
+# EDITOR carve-out in MouseDrag1Pane only exists for this case, and it is the
+# one branch worth a live pane rather than a formula read back.
+GRABBER = (r"i=1; while [ $i -le 12 ]; do echo grab-$i-abcdefghij; i=$((i+1)); done; "
+           r"printf '\033[?1006h\033[?1000h'; sleep 60")
+
+
+def tmux(*a):
+    return subprocess.run(["tmux", "-L", SOCK, *a], capture_output=True, text=True)
+
+
+def sgr(button, col, row, press=True):
+    return f"\x1b[<{button};{col};{row}{'M' if press else 'm'}".encode()
+
+
+DRAG = sgr(0, 1, 5) + sgr(32, 24, 5) + sgr(0, 24, 5, press=False)
+CLICK = sgr(0, 10, 8) + sgr(0, 10, 8, press=False)
+WHEEL_UP = sgr(64, 40, 10)
+DOUBLE = CLICK + CLICK
+
+
+def main():
+    clip = pathlib.Path(tempfile.mkdtemp()) / "clip"
+    tmux("kill-server")
+    # -f /dev/null: probe the file in this checkout, never the user's ~/.tmux.conf
+    # -n shell, and every target below is a NAME: base-index is still 0 at
+    # creation time, so the first window is 0 and "-t 1" would hit the second one
+    tmux("-f", "/dev/null", "new-session", "-d", "-n", "shell",
+         "-x", "80", "-y", "20", "sh")
+    tmux("source-file", str(CONF))
+    tmux("set", "-g", "status", "off")
+    tmux("set", "-g", "pane-border-status", "off")
+    # the clipboard, redirected: a probe must not walk off with your real one
+    tmux("set", "-g", "@office_copy", f"sh -c 'cat > {clip}'")
+
+    # one window per pane kind, each filling the client, so a mouse coordinate
+    # is unambiguous without doing layout arithmetic
+    for kind in ("EDITOR", "CLAUDE"):
+        tmux("new-window", "-d", "-n", kind.lower(), "sh", "-c", GRABBER)
+        tmux("set", "-p", "-t", kind.lower(), "@office_kind", kind)
+    tmux("send-keys", "-t", "shell",
+         "for i in $(seq 1 60); do echo line-$i-abcdefghij; done", "Enter")
+    time.sleep(0.8)
+
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.environ["TERM"] = "xterm-256color"
+        os.execvp("tmux", ["tmux", "-L", SOCK, "attach"])
+    time.sleep(1.2)
+
+    def press(data, wait=0.55):
+        os.write(fd, data)
+        time.sleep(wait)
+
+    def state():
+        got = clip.read_text() if clip.exists() else ""
+        clip.unlink(missing_ok=True)
+        return tmux("display-message", "-p", "#{pane_in_mode}").stdout.strip(), got
+
+    fails = []
+
+    def check(name, want_mode, want_copy):
+        mode, got = state()
+        # every line in every probe pane ends in this, and it is what a copy of
+        # any shape lands on: a drag takes the line, a double-click takes the
+        # word, and tmux counts a hyphen as a word break
+        copied = "abcdefghij" in got
+        ok = (mode == want_mode) and (copied == want_copy)
+        print(f"  {'ok  ' if ok else 'FAIL'} {name}")
+        if not ok:
+            fails.append(f"{name}: in_mode={mode} (want {want_mode}), "
+                         f"copied={copied} (want {want_copy}), clip={got!r}")
+
+    print("a drag copies, and leaves you at the prompt")
+    tmux("select-window", "-t", "shell")
+    press(DRAG)
+    check("drag in a plain shell pane", "0", True)
+
+    press(WHEEL_UP)
+    press(DRAG)
+    check("drag in a pane already scrolled back", "0", True)
+
+    # 1.4s, not the default wait: tmux cannot fire DoubleClick1Pane until its own
+    # 500ms triple-click window has passed, and the binding then waits 0.3s more
+    # before it pipes. Read the clipboard any sooner and a working gesture
+    # reports as broken.
+    press(DOUBLE, wait=1.4)
+    check("double-click takes the word", "0", True)
+
+    print("copy mode is never a trap")
+    press(WHEEL_UP)
+    check("wheel-up enters copy mode", "1", False)
+    press(b"\x1b")
+    check("Escape leaves it", "0", False)
+
+    press(WHEEL_UP)
+    press(b"kkk")  # walk the cursor off the bottom, the state a human gets stuck in
+    press(CLICK)
+    check("a click leaves it", "0", False)
+
+    print("the app keeps the mouse, except in the editor")
+    tmux("select-window", "-t", "editor")
+    press(DRAG)
+    check("EDITOR pane: tmux copies anyway", "0", True)
+
+    tmux("select-window", "-t", "claude")
+    press(DRAG)
+    check("CLAUDE pane: the app gets the drag", "0", False)
+
+    tmux("kill-server")
+    if fails:
+        print("\n" + "\n".join(fails))
+        sys.exit(1)
+    print("\nall clear")
+
+
+if __name__ == "__main__":
+    main()
