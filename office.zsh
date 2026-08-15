@@ -105,6 +105,44 @@ _office_attach() {
 # has to come second). Same file `Ctrl-Space r` reloads.
 _office_reload_conf() { tmux source-file ~/.tmux.conf 2>/dev/null }
 
+# ZOOM LIES ABOUT GEOMETRY, and every layout answer in this file is geometry.
+# While a pane is zoomed, tmux reports THAT pane at full-window coordinates:
+# pane_left 0, pane_top 1, the whole width. The other panes keep their old
+# numbers. So `_office_desk_pane` picks the zoomed pane as the bottom desk,
+# `_office_desk_count` counts it into the left column, `_office_even_column`
+# resizes a column that is not there, `_office_number` numbers by a position
+# nothing is at — and `_office_layout_ok` sees a strip pane sitting at left 0,
+# calls the office broken, and hands it to `_office_relayout`, which breaks
+# EVERY pane out to the stash and rejoins them, all from a lie. That is how
+# zooming a session and unzooming it again left one shell on screen.
+#
+# tmux was never going to keep the zoom anyway: its own resize-pane unzooms the
+# window silently (check window_zoomed_flag after one). So drop it FIRST and on
+# purpose. An office command that touches the room shows you the room.
+_office_unzoom() {                     # <session>
+  # A pane id, and nothing shorter. `resize-pane -t "=<session>"` is not a
+  # target tmux accepts ("can't find pane"), and display-message -t "=session"
+  # returns EMPTY for window flags — the same trap as window_height in
+  # _office_even_column. Both fail silently, which is a guard that guards
+  # nothing. Ask for the panes instead: the ACTIVE pane of every zoomed window,
+  # which is the only pane a window can be zoomed on.
+  local p n=0
+  for p in ${(f)"$(tmux list-panes -s -t "=$1" -F '#{pane_id}' \
+                   -f '#{&&:#{pane_active},#{window_zoomed_flag}}' 2>/dev/null)"}; do
+    # ++n, never n++: post-increment EVALUATES to the OLD value, so `(( n++ ))`
+    # on the first pane is arithmetic-false, ends the && chain, and in a shell
+    # with err_return set returns out of whatever called this.
+    [[ -n $p ]] && tmux resize-pane -Z -t "$p" 2>/dev/null && (( ++n ))
+  done
+  # and SAY so. The zoom going away silently is the half of this the operator
+  # actually felt: the room came back while he was looking at one pane, so the
+  # next Ctrl-Space z — pressed to zoom OUT — zoomed IN on whatever pane the
+  # command had just left him on, and the screen went down to that one pane.
+  # A toggle is never wrong about the state. It was the state that moved.
+  (( n )) && _office_say "unzoomed — Ctrl-Space z zooms again"
+  return 0
+}
+
 # the BOTTOM desk in the left column: a new session is split off it, so sessions
 # append downwards and their numbers stay in the order you opened them. Splitting
 # the tallest instead would drop session 3 in between 1 and 2.
@@ -317,6 +355,13 @@ _office_strip_slot() {                 # <session> <kind>
 _office_layout_ok() {                  # <session>
   local line kind left
   local -a dl sl
+  # again here, and not only in office(): this is the ONE geometry read whose
+  # wrong answer is destructive. It hands the room to _office_relayout, which
+  # breaks every pane out to the stash. A zoomed pane reports left 0, so a strip
+  # pane under zoom looks like it is sitting in the desk column and the office
+  # is declared broken while nothing is wrong with it. Nothing calls this from
+  # outside office() today; the guard is here so nothing has to remember.
+  _office_unzoom "$1"
   for line in ${(f)"$(tmux list-panes -t "=$1" -F '#{pane_left}|#{@office_kind}' 2>/dev/null)"}; do
     left=${${(s:|:)line}[1]}; kind=${${(s:|:)line}[2]}
     if [[ $(_office_rank "$kind") == 9 ]]; then dl+=($left); else sl+=($left); fi
@@ -612,6 +657,10 @@ _office_hide() {                       # <pane-id>
   kind=$(tmux display -p -t "$1" '#{@office_kind}' 2>/dev/null)
   sess=$(tmux display -p -t "$1" '#{session_name}' 2>/dev/null)
   [[ -n $kind ]] || kind=pane
+  # again here, and not only in office(): the Ctrl-Space x binding is the one
+  # that does NOT cd to the pane's path first, so _office_here up there can name
+  # a different office (or none). The pane knows its own session; use that.
+  _office_unzoom "$sess"
   _office_stash_ensure
   # two parked CLAUDE desks would otherwise both be a window called "claude", and
   # only ever one of them could be found again. The pane id makes it unique, and
@@ -1094,6 +1143,13 @@ office() {
   if [[ -n $_m && -n $_OFFICE_MTIME && $_m != $_OFFICE_MTIME ]]; then
     source "$_OFFICE_HOME/office.zsh" && { office "$@"; return }
   fi
+  # ONE place, because every verb that moves a pane comes through here — typed,
+  # aliased, or fired by a key binding's run-shell. See _office_unzoom for what
+  # a zoomed window does to the geometry underneath. The exemptions are the
+  # verbs that only print, detach, or close the whole thing: those never read a
+  # column, so taking the operator's zoom away for them would be rude.
+  [[ $cmd == (help|-h|--help|list|ls|status|doctor|check|update|upgrade|sweep|stale|break|pause|bg|away|brb|off|out|end|quit|stop|home) ]] \
+    || _office_unzoom "$(_office_here)"
   case $cmd in
     on|up|in|back|work|resume)
       dir=$(_office_find "$OFFICE_DEFAULT") || true
