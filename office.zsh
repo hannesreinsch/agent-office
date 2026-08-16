@@ -63,6 +63,23 @@ OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
 _office_sessname() { basename "$1" | tr ' .:' '___'; }
 _office_root()     { git -C "${1:-$PWD}" rev-parse --show-toplevel 2>/dev/null || print -r -- "${1:-$PWD}"; }
 
+# Stand where the key was pressed. The bindings hand the pane's path in here
+# instead of doing their own `cd`, because that pane can be standing in a
+# directory that is GONE — a session worktree reaped by a sweep while its agent
+# was still sat in it, which is the normal end of a desk's life. The bindings
+# read `cd "<pane path>" && office …`, so the failed `cd` took the whole line
+# with it and the key did NOTHING: not one broken key, EVERY office key in that
+# pane, and silently, because a keybinding's output is muted on purpose. The
+# nearest directory that is still there is inside the same repo, which is all
+# any command here asks of $PWD.
+_office_pane_cwd() {
+  local d=${OFFICE_PANE_PATH:-}
+  unset OFFICE_PANE_PATH
+  [[ -n $d ]] || return 0
+  until [[ -d $d ]]; do d=${d:h}; done   # :h of / is /, so this always lands
+  cd "$d"
+}
+
 # WHICH office this pane is in. Ask tmux, never $PWD: deriving it from the
 # directory meant one `cd` out of the repo (or into a different one) renamed the
 # office out from under every helper — the editor stopped following the shell,
@@ -1133,6 +1150,7 @@ ${r}"
 # office <on|break|off|repo|pick|new|solo|doctor|clean> — your whole workspace, one word.
 office() {
   local cmd=${1:-help} dir
+  _office_pane_cwd                     # a key press stands where its pane stood
   # A shell keeps running the copy of this file it sourced when it started. That
   # is how `office off; office on` right after an update gives you back the OLD
   # office, in an old shape, with the fix you just installed nowhere in it —
