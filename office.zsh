@@ -466,17 +466,27 @@ _office_even_desks() { _office_even_column "$1" left }
 # you close a pane and the bar keeps saying it is open until the next tick. This
 # is pushed, from the one function that already runs after every change.
 #
-#   lit  a pane that is CLOSED. The only thing on this bar worth your eye.
-#   dim  everything else: panes that are open, and the actions, which have no
-#        open-or-closed state to report at all.
+# Three tones, and the ladder is one question: what is the key FOR right now?
+#
+#   white  the way BACK out of a state you are stuck in. Nothing else is white,
+#          so white always means "press this to undo what you are looking at".
+#          Only zoom has such a state: while a window is zoomed, every other
+#          pane is invisible while still being open, so the open/closed reading
+#          below cannot help you and the exit key has to say so itself.
+#   lit    a pane that is CLOSED - the key brings it back. Worth your eye.
+#   dim    a pane that is already open, and the actions, which have no
+#          open-or-closed state to report at all.
+#
+# The prefix is lit, not dim: it is the key every other key on this bar needs
+# first, so it is never "nothing to do here".
 _OFFICE_BAR_OPEN='#[fg=#4e505a]'
 _OFFICE_BAR_SHUT='#[fg=#9a9ca6]'
-_OFFICE_BAR_DO='#[fg=#6a6c77]'
+_OFFICE_BAR_BACK='#[fg=#f6f5f1]'
 _OFFICE_BAR_SEP='#[fg=#3a3c44]'
 _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
-  out="${_OFFICE_BAR_DO}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
+  out="${_OFFICE_BAR_SHUT}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
   for pair in "CLAUDE:sessions:a" "CHAT:chat:c" "SHELL:shell:s" "EDITOR:editor:e"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
@@ -486,7 +496,14 @@ _office_bar() {                        # <session>
   # One list, one separator. There used to be a second divider here marking
   # "toggles" from "actions", which is a distinction nothing else on the bar
   # shows: brightness means closed, and that is all it means.
-  out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}q close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}z zoom#[default]"
+  # Zoom is the one segment this function cannot answer, and the only one that
+  # is a FORMAT rather than a tone: ^Space z is plain tmux, so it fires without
+  # office running at all and a pushed tone would sit there stale, calling a
+  # zoomed window flat until the next thing you happen to open. tmux resolves
+  # this conditional itself, every redraw. It needs the theme's `#{E:` to be
+  # expanded - a `#{...}` reached through `#{@office_bar}` comes out LITERAL
+  # (checked on tmux 3.7b), which is why the E is not decoration.
+  out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}q close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]#{?window_zoomed_flag,${_OFFICE_BAR_BACK}z unzoom,${_OFFICE_BAR_OPEN}z zoom}#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
