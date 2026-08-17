@@ -105,6 +105,24 @@ room that is not on screen — and `_office_layout_ok` then calls a perfectly go
 office broken and hands it to `_office_relayout`, which breaks every pane out to
 the stash. Reading the code does not show you this; the probe does.
 
+Touched `bin/office-attn`, `@office_attn_gate` or a `pane-border-format`? Run
+`bin/attn-probe`. It builds a throwaway office and puts fake agents in the desks
+that move the way real ones do, then drives the real watcher. Two cases in it are
+the whole reason the file is shaped the way it is, and neither is visible in the
+code: **an idle agent pane is not perfectly still** (Claude Code rotates a hint
+line under its input box, so "still" has to tolerate a line moving), and **an
+agent that is thinking moves exactly one line** (its spinner, which that same
+tolerance then eats — worth eighteen seconds of a border saying "your turn"
+mid-task before it was measured). One case here rotates a line and must still
+count as waiting; another animates one line at 10Hz and must never. It also
+checks the gate by expanding the expression that ships rather than a copy of it.
+
+One thing that probe cannot do, and it is worth knowing before you write another:
+**`display-message -p` expands formats with jobs switched off**, so a `#()` in
+one is always empty there. Measured on 3.7b — five calls over five seconds and
+the command never ran once. A drawn border does run it; a probe reading one back
+does not.
+
 Run `zsh -n office.zsh` before you push. It catches most of it.
 
 ## Reporting a bug

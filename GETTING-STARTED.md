@@ -229,8 +229,13 @@ And the mouse, with no key at all:
 | double-click a word | the same, for one word |
 | click in a pane that scrolled | back at the live prompt, typing again (Escape does it too) |
 
-Each pane's top border shows the key that acts on it, and the bar along the
-bottom lists the rest. **Whatever is bright on that bar is closed.**
+Each pane's top border shows its number and what it is, and the bar along the
+bottom carries the keys. **Whatever is bright on that bar is closed.**
+
+And the thing you actually wanted from four agents at once: a desk that has
+stopped and is waiting on you says **your turn** on its own border, with how long
+it has been waiting. You never have to read all four panes to find the one that
+finished. Nothing to press, and nothing to set up.
 
 If Shift+arrow ever does not move you, you have a file open in the editor, where
 it selects text instead. **Ctrl+Space then an arrow** always moves, from

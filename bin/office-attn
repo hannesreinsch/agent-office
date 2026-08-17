@@ -1,0 +1,124 @@
+#!/bin/sh
+# office-attn — is THIS desk waiting on you? Two words for its border, or nothing.
+#
+# The first thing the README promises to fix is the one thing the office did not
+# say: four agents running, and no idea which one has stopped and is waiting on
+# you. Every border read CLAUDE and every one of them was right, so you read all
+# four panes to find the one that had finished.
+#
+# What this deliberately does NOT do is know anything about the agent. No marker
+# to grep for, no hook to install, no per-CLI special case: office points the
+# left column at claude, codex or your own thing through one variable, and this
+# has to keep being true for all of them. The one behaviour every agent CLI
+# shares is that it MOVES while it works — a spinner, an elapsed timer, tokens
+# arriving. A screen that stopped moving is an agent that stopped, and an agent
+# that stopped is your turn.
+#
+# It takes TWO looks to answer that, and every one-look version of this was
+# wrong. Both traps below were measured against a real session, not reasoned
+# about, and each one produced a marker that lied:
+#
+# 1. AN IDLE PANE IS NOT PERFECTLY STILL, so a hash of the screen never settles.
+#    Claude Code rotates a one-line hint under its input box every ~8 seconds
+#    (the tmux tip, the weekly limit, the effort setting). A whole-screen
+#    fingerprint changed on every second or third look and the marker could never
+#    appear at all. Counting CHANGED LINES since the last look fixes that, at 5s
+#    intervals:
+#
+#        streaming output   7, 32, 34, 34 lines changed per look
+#        idle               1, then 0 0 0 0 0 0 0   (that hint, and nothing else)
+#
+#    Hence SLOW below, with two lines of tolerance.
+#
+# 2. AN AGENT THAT IS THINKING ONLY MOVES ONE LINE, which that tolerance eats.
+#    Between submitting a prompt and the first output, all Claude Code redraws is
+#    its own spinner and elapsed timer — one line — and for the eighteen seconds
+#    that took, the border said "your turn" while the agent was busy. A marker
+#    that appears mid-task is worse than no marker, because you learn to ignore
+#    it.
+#
+#    What separates them is not how MUCH moves but how OFTEN: a spinner animates
+#    several times a second, a rotating hint every eight. So look twice, half a
+#    second apart. Measured, 20 samples each:
+#
+#        thinking   1 1 1 1 1 1 1 1 1 1 1 1 1 0 1   (the spinner, every time)
+#        idle       0 0 0 0 0 0 0 0 0 0 1 0 0 0 0   (one unlucky hint in twenty)
+#
+#    Hence FAST, with no tolerance at all. The 1-in-20 costs one look, because a
+#    reset only restarts the wait and the wait is four looks long.
+#
+# Either signal means working. Both quiet means waiting, and once it has been
+# waiting @office_attn_secs its border says so.
+#
+# Called once per desk pane per status-interval from pane-border-format, which is
+# also what gates it: desks only, and never the pane you are already sitting in.
+# The gate is @office_attn_gate in office.tmux.conf.
+#
+# ponytail: a measured heuristic with a knob on it, not a protocol. The exact
+# signal does exist for one agent — Claude Code's Stop hook fires the moment it
+# hands back — but that is an entry in the user's own ~/.claude/settings.json for
+# one CLI, and this has to answer for whatever OFFICE_SESSION_CMD points at. An
+# agent that neither animates nor prints for a while is the case no screen
+# reading can catch: raise OFFICE_ATTN_SECS rather than trust a shorter wait.
+SLOW_OK=2                              # lines that may change between looks
+FAST_OK=0                              # ...and in half a second, none may
+
+id=${1:?usage: office-attn <pane-id>}
+
+# ONE tmux call for all of it, the clock included: `%s` is strftime, which
+# display-message expands alongside the #{} formats, so there is no `date` fork
+# in a job that runs every few seconds for every desk on screen.
+IFS='|' read -r now since secs sock <<EOF
+$(tmux display -p -t "$id" '%s|#{@office_still}|#{@office_attn_secs}|#{socket_path}' 2>/dev/null)
+EOF
+[ -n "$now" ] || exit 0                # no such pane any more: say nothing
+[ -n "$secs" ] || secs=20
+
+# The last screen lives next to the tmux socket, which is a directory tmux has
+# already made, is per-user, and goes away with the machine. Nothing here has to
+# survive `office off` — a stale snapshot reads as "the screen changed", which
+# restarts the wait, which is the right answer for a pane that just came up.
+snap="${sock%/*}/.office-attn-${id#\%}"
+
+# The two looks. Half a second: long enough that a spinner has moved, short
+# enough that nothing else has. A job runs off the tmux server's own event loop,
+# so this sleep costs a redraw nothing.
+tmux capture-pane -p -t "$id" > "$snap.a" 2>/dev/null || exit 0
+sleep 0.5
+
+# ONE awk for both compares: the second look against the previous LOOK (fast) and
+# against the previous TICK (slow), and it writes the tick snapshot back on the
+# way through. BEGIN slurps both files before the first `print`, so writing over
+# the path it just read is safe and saves a temp file and a mv. The trailing term
+# catches a screen that grew or shrank, whose extra lines the per-line compare
+# never reaches. A missing file at all prints -1, which counts as movement: a
+# pane office has never looked at is a pane whose wait starts now.
+set -- $(tmux capture-pane -p -t "$id" 2>/dev/null | awk -v tick="$snap" -v look="$snap.a" '
+  BEGIN { while ((getline l < tick) > 0) a[++n] = l; close(tick)
+          while ((getline l < look) > 0) b[++m] = l; close(look) }
+  { print > tick
+    if (a[FNR] != $0) c++
+    if (b[FNR] != $0) d++ }
+  END { print (n ? c + 0 + (FNR > n ? FNR - n : n - FNR) : -1),
+              (m ? d + 0 + (FNR > m ? FNR - m : m - FNR) : -1) }')
+slow=${1:--1} fast=${2:--1}
+
+if [ "$slow" -lt 0 ] || [ "$slow" -gt "$SLOW_OK" ] \
+   || [ "$fast" -lt 0 ] || [ "$fast" -gt "$FAST_OK" ]; then
+  tmux set -p -t "$id" @office_still "$now" 2>/dev/null
+  exit 0                               # it is working. Nothing on the border.
+fi
+
+# Still. Since when, though — a pane that has never moved has no answer yet.
+[ -n "$since" ] || { tmux set -p -t "$id" @office_still "$now" 2>/dev/null; exit 0; }
+idle=$((now - since))
+[ "$idle" -ge "$secs" ] || exit 0
+
+# Two leading spaces, because this sits at the end of the border and the label
+# before it ends in text. The minutes only appear once there are two of them: a
+# readout that says "1m" the moment after it said nothing is noise, and with
+# several desks waiting the number is the whole point — it says which one has
+# been waiting longest, so you know what to pick up first.
+if [ "$idle" -ge 120 ]; then printf '  your turn %dm' $((idle / 60))
+else                         printf '  your turn'
+fi

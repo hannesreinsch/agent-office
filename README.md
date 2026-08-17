@@ -197,6 +197,36 @@ set -g status-left "#{@office_bar} "
 set -g status-left-length 70
 ```
 
+### Which one is waiting on you
+
+A desk that has stopped moving for twenty seconds says so on its own border,
+with how long it has been waiting:
+
+```
+ 2 CLAUDE · desk-2 · rewrite the auth module              your turn 4m
+```
+
+Nothing to press, nothing to install, and no hook in your agent's settings. It
+works this out by watching the pane rather than by knowing anything about what is
+running in it, so it is the same for `claude`, `codex` or whatever
+`OFFICE_SESSION_CMD` points at: an agent that is working **redraws** — a spinner,
+an elapsed timer, output arriving — and an agent that has stopped does not.
+
+It takes two looks half a second apart, because either one alone is wrong, and
+both of those were measured rather than reasoned about. An idle Claude Code pane
+is not perfectly still: it rotates a hint line under the input box every eight
+seconds, so a screen fingerprint never settles and the marker would never appear.
+An agent that is *thinking* moves exactly one line, its spinner, so tolerating a
+line means the border says "your turn" for as long as the agent takes to think —
+eighteen seconds of it, in the session that produced this. What separates them is
+the rate, not the amount: a spinner moves within half a second, a hint that
+rotates every eight does not.
+
+The pane you are sitting in never says it, because you are already looking at it,
+and neither do the shell and the file list. With the theme it arrives in
+`$ACCENT`, which now has exactly one meaning anywhere on the screen. The wait is
+`OFFICE_ATTN_SECS` and it is the only knob: raise it if your agent can go quiet
+mid-task without redrawing anything at all. `bin/attn-probe` is the check.
 
 ### The one chord, and why it is only arrows
 
@@ -350,6 +380,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_STRIP_WIDTH` | `32` | percent of the window the right strip takes |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
+| `OFFICE_ATTN_SECS` | `20` | how long a desk sits still before its border says **your turn** |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
 | `OFFICE_CHAT_OPEN` | on once `OFFICE_CHAT_CMD` is set | whether the chat pane opens at startup |
@@ -518,7 +549,8 @@ source-file ~/agent-office/theme/office-theme.tmux.conf  # optional
 
 Source it second, because it overrides the pane border. Monochrome by
 conviction: state is tone, weight and inversion, never hue, and exactly one
-colour is allowed on the bar. It also brings the clickable strip described above.
+colour is allowed anywhere — it means **your turn**, and nothing else on the
+screen is ever given it. It also brings the clickable strip described above.
 
 **The right-hand side of the bar is yours.** The theme puts a git branch and a
 clock there and nothing else. To add your own, put one line in your

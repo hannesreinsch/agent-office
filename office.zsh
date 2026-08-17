@@ -51,6 +51,11 @@ OFFICE_WORKTREE_DIR="${OFFICE_WORKTREE_DIR:-.claude/worktrees}"
 # does not wrap every sentence, narrow enough that the agents keep the room.
 OFFICE_STRIP_WIDTH="${OFFICE_STRIP_WIDTH:-32}"
 OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
+# How long a desk has to sit completely still before its border says "your turn".
+# Long enough that a pause between two tool calls is not an interruption, short
+# enough that you are not the last to know. Raise it if your agent goes quiet
+# mid-task without redrawing anything at all. See bin/office-attn.
+OFFICE_ATTN_SECS="${OFFICE_ATTN_SECS:-20}"
 _OFFICE_CHAT_UNSET="exec $SHELL"
 OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
 # Open the chat pane at startup when there is actually a chat to open, which is
@@ -121,6 +126,24 @@ _office_attach() {
 # the theme, in the order the theme needs (it overrides the pane border, so it
 # has to come second). Same file `Ctrl-Space r` reloads.
 _office_reload_conf() { tmux source-file ~/.tmux.conf 2>/dev/null }
+
+# Two things the tmux config cannot work out for itself, handed over on the way
+# in. Both are read by the "your turn" watcher on the pane borders.
+#
+#   @office_home       a tmux config has no way to know its own path, and the
+#                      watcher is a file next to it. The one place that always
+#                      knows is this file.
+#   @office_attn_secs  because OFFICE_ATTN_SECS is an environment variable and
+#                      the watcher runs as a #() job, which tmux starts from the
+#                      SERVER's environment — not the shell you exported it in.
+#                      Same trap the theme's status-right documents. Pushing it
+#                      into an option is what makes an OFFICE_* variable in your
+#                      .zshrc mean anything to a job inside the server.
+_office_watch_setup() {
+  tmux set -g @office_home "$_OFFICE_HOME" 2>/dev/null
+  tmux set -g @office_attn_secs "$OFFICE_ATTN_SECS" 2>/dev/null
+  return 0
+}
 
 # ZOOM LIES ABOUT GEOMETRY, and every layout answer in this file is geometry.
 # While a pane is zoomed, tmux reports THAT pane at full-window coordinates:
@@ -779,6 +802,7 @@ _office_open() {                       # <repo-path>
   fi
   cd "$dir"
   _office_number "$s"                  # also writes the key strip
+  _office_watch_setup                  # ...and what the borders need to watch
   _office_reap                         # walking in takes the bins out
   _office_update_check
   _office_always_on_up                 # restore whatever `office off` stopped
@@ -1089,7 +1113,8 @@ _office_help() {
   print -P "  ${g}Enter${r}  scrollback / copy mode  ${g}r${r}  reload the tmux config"
   print -P "  ${d}Only the arrows are a chord, because they carry their modifier natively.${r}"
   print -P "  ${d}Everything else is the prefix: no terminal setup, same on every OS.${r}"
-  print -P "  ${d}Each border shows the key for that pane. Or just click one with the mouse:${r}"
+  print -P "  ${d}A border shows what that pane is, and 'your turn' when it is waiting on${r}"
+  print -P "  ${d}you. The keys are all on the bar. Or just click a pane with the mouse:${r}"
   print -P "  ${d}drag across text to copy it, or double-click a word — either way it${r}"
   print -P "  ${d}is on the clipboard when you let go.
 ${r}"
@@ -1098,6 +1123,9 @@ ${r}"
   print -P "  ${g}Ctrl-Space n${r}   One more session, in its OWN git worktree — a free one, or a"
   print -P "                 ${d}new desk-N. Press it 2-4x: the left column splits evenly and${r}"
   print -P "                 ${d}each agent edits a separate checkout, so they never collide.${r}"
+  print -P "  ${g}your turn${r}      Which one is waiting on you: a desk that has not moved for"
+  print -P "                 ${d}${OFFICE_ATTN_SECS}s says so on its own border, and how long it has been${r}"
+  print -P "                 ${d}waiting. Nothing to press. OFFICE_ATTN_SECS changes the wait.${r}"
   print -P "  ${g}office new X${r}   Straight into worktree X — created if it is not there yet."
   print -P "  ${g}office task X${r}  A new session already working on X."
   print -P "  ${g}office desk${r}    One more session in THIS checkout, when you mean it: two"
@@ -1230,6 +1258,11 @@ office() {
       fi
       git -C "$_OFFICE_HOME" pull --ff-only || return 1
       _office_reload_conf
+      # ...and here too, not only on the way in. A pull that moves the package
+      # (or the first one that brings a watcher at all) leaves a running server
+      # holding no @office_home, which turns the border readout off silently —
+      # "I updated and the new thing does nothing", with nothing to see.
+      _office_watch_setup
       print "updated. The next 'office' command in any shell runs the new version;"
       print "panes already open keep what they are running until you close them." ;;
     renumber)
