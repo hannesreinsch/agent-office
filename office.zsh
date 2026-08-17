@@ -504,6 +504,13 @@ _office_bar() {                        # <session>
   # expanded - a `#{...}` reached through `#{@office_bar}` comes out LITERAL
   # (checked on tmux 3.7b), which is why the E is not decoration.
   out+="${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}q close${_OFFICE_BAR_SEP} · #[default]${_OFFICE_BAR_OPEN}x park${_OFFICE_BAR_SEP} · #[default]#{?window_zoomed_flag,${_OFFICE_BAR_BACK}z unzoom,${_OFFICE_BAR_OPEN}z zoom}#[default]"
+  # Moving between panes, behind its own divider because it is the one chord on
+  # this bar that does NOT want the prefix - the divider is the chord changing,
+  # which is the same job the first one does after ^Space. It is the first thing
+  # a new pair of eyes needs and the only key here nothing on screen hints at:
+  # a pane border shows which pane you are in, never how to reach the next one.
+  # Dim, like the other actions, because moving has no open-or-closed state.
+  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_OPEN}⇧←↑↓→ move#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
