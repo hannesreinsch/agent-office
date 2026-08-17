@@ -138,9 +138,10 @@ does not.
 CI runs all five on every push, on **macOS and Ubuntu**, and the gap between them
 is worth keeping: Ubuntu ships tmux 3.4 against macOS's 3.7b, and that alone
 found two version-dependent bugs on its first run — `#{!:...}` silently inverting
-a gate, and Shift-Enter arriving in a different encoding depending on which tmux
-you had. Prefer `#{==:x,0}` to `#{!:x}`, and pin anything whose default has moved
-between versions rather than relying on it.
+a gate, and a probe asserting one Shift-Enter encoding when tmux picks it by
+version. Prefer `#{==:x,0}` to `#{!:x}`. And check an option EXISTS on 3.4 before
+reaching for it: `extended-keys-format` does not, so setting it would print
+`invalid option` into every reload of the config that exists to make keys work.
 
 Run `zsh -n office.zsh` before you push. It catches most of it.
 
