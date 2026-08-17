@@ -119,6 +119,15 @@ idle=$((now - since))
 # readout that says "1m" the moment after it said nothing is noise, and with
 # several desks waiting the number is the whole point — it says which one has
 # been waiting longest, so you know what to pick up first.
-if [ "$idle" -ge 120 ]; then printf '  your turn %dm' $((idle / 60))
-else                         printf '  your turn'
+#
+# And it keeps counting past the hour, in hours, because by then the number has
+# stopped being about your attention and started being about the SESSION. An
+# agent that has not been spoken to for an hour has usually lost whatever its
+# provider was caching for it, and the next thing you say is charged as if the
+# conversation were new. "1h20m" says that at a glance and "80m" does not. The
+# tool has no business knowing any provider's rules, so it states the age and
+# lets you know what an hour means for yours.
+if   [ "$idle" -ge 3600 ]; then printf '  your turn %dh%dm' $((idle / 3600)) $((idle % 3600 / 60))
+elif [ "$idle" -ge 120 ];  then printf '  your turn %dm' $((idle / 60))
+else                            printf '  your turn'
 fi

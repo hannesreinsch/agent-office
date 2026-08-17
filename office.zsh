@@ -56,6 +56,13 @@ OFFICE_CHAT_LABEL="${OFFICE_CHAT_LABEL:-AGENT CHAT}"
 # enough that you are not the last to know. Raise it if your agent goes quiet
 # mid-task without redrawing anything at all. See bin/office-attn.
 OFFICE_ATTN_SECS="${OFFICE_ATTN_SECS:-20}"
+# When a desk's context window stops being furniture and starts being a decision.
+# Under the first mark the number is just there; over it, it goes to the theme's
+# accent; over the second, to its alarm. Defaults suit a large window — set them
+# to something like 120000 and 170000 for a 200k one, because "full" depends on
+# the window your plan gets and nothing here can know that. See bin/office-ctx.
+OFFICE_CTX_WARN="${OFFICE_CTX_WARN:-400000}"
+OFFICE_CTX_ALARM="${OFFICE_CTX_ALARM:-600000}"
 _OFFICE_CHAT_UNSET="exec $SHELL"
 OFFICE_CHAT_CMD="${OFFICE_CHAT_CMD:-$_OFFICE_CHAT_UNSET}"
 # Open the chat pane at startup when there is actually a chat to open, which is
@@ -134,14 +141,16 @@ _office_reload_conf() { tmux source-file ~/.tmux.conf 2>/dev/null }
 #                      watcher is a file next to it. The one place that always
 #                      knows is this file.
 #   @office_attn_secs  because OFFICE_ATTN_SECS is an environment variable and
-#                      the watcher runs as a #() job, which tmux starts from the
-#                      SERVER's environment — not the shell you exported it in.
-#                      Same trap the theme's status-right documents. Pushing it
-#                      into an option is what makes an OFFICE_* variable in your
+#   @office_ctx_warn   the watchers run as #() jobs, which tmux starts from the
+#   @office_ctx_alarm  SERVER's environment — not the shell you exported them in.
+#                      Same trap the theme's status-right documents. Pushing them
+#                      into options is what makes an OFFICE_* variable in your
 #                      .zshrc mean anything to a job inside the server.
 _office_watch_setup() {
   tmux set -g @office_home "$_OFFICE_HOME" 2>/dev/null
   tmux set -g @office_attn_secs "$OFFICE_ATTN_SECS" 2>/dev/null
+  tmux set -g @office_ctx_warn "$OFFICE_CTX_WARN" 2>/dev/null
+  tmux set -g @office_ctx_alarm "$OFFICE_CTX_ALARM" 2>/dev/null
   return 0
 }
 
@@ -530,7 +539,14 @@ _office_number() {                     # <session>
 # window, and changing it under you mid-session is how a morning gets ruined.
 # `office update` is the deliberate act, and it refuses on a dirty tree rather
 # than merging over your edits.
+#
+# It is also the ONLY thing here that touches the network, which is why it has an
+# off switch. `OFFICE_UPDATE_CHECK=0` and the office never opens a socket at all
+# — for an offline machine, a network that makes a `git fetch` hang, or simply
+# not wanting a tool you start twenty times a day to talk to GitHub every time.
+: ${OFFICE_UPDATE_CHECK:=1}
 _office_update_check() {
+  (( OFFICE_UPDATE_CHECK )) || return 0
   [[ -d $_OFFICE_HOME/.git ]] || return 0
   ( git -C "$_OFFICE_HOME" fetch --quiet origin 2>/dev/null & ) >/dev/null 2>&1
   local behind
@@ -1126,6 +1142,10 @@ ${r}"
   print -P "  ${g}your turn${r}      Which one is waiting on you: a desk that has not moved for"
   print -P "                 ${d}${OFFICE_ATTN_SECS}s says so on its own border, and how long it has been${r}"
   print -P "                 ${d}waiting. Nothing to press. OFFICE_ATTN_SECS changes the wait.${r}"
+  print -P "  ${g}412k${r}           How full that desk's context window is, on its border. Quiet"
+  print -P "                 ${d}below $(( OFFICE_CTX_WARN / 1000 ))k, then the accent, then the alarm at $(( OFFICE_CTX_ALARM / 1000 ))k — so you${r}"
+  print -P "                 ${d}see which one to compact without walking into it to ask.${r}"
+  print -P "                 ${d}OFFICE_CTX_WARN / _ALARM move the marks. Claude Code only.${r}"
   print -P "  ${g}office new X${r}   Straight into worktree X — created if it is not there yet."
   print -P "  ${g}office task X${r}  A new session already working on X."
   print -P "  ${g}office desk${r}    One more session in THIS checkout, when you mean it: two"

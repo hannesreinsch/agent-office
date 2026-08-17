@@ -15,8 +15,9 @@ something that turns out to be out of scope.
 
 ## What this project is
 
-A tmux cockpit for running several coding-agent sessions at once. Around 650
-lines of zsh, a tmux config, and one iTerm2 profile.
+A tmux cockpit for running several coding-agent sessions at once. Around 1,900
+lines of zsh and tmux config, four probes that drive a real tmux server, and one
+iTerm2 profile.
 
 **In scope:** making that faster, clearer or harder to get wrong. Support for
 agents other than Claude Code, provided it stays a variable and not a special
@@ -116,6 +117,17 @@ tolerance then eats — worth eighteen seconds of a border saying "your turn"
 mid-task before it was measured). One case here rotates a line and must still
 count as waiting; another animates one line at 10Hz and must never. It also
 checks the gate by expanding the expression that ships rather than a copy of it.
+
+Touched `bin/office-ctx`? Run `bin/ctx-probe`. No Claude Code and no API call
+needed: that script reads exactly three things — the pane's process group,
+`~/.claude/sessions/<pid>.json` and `~/.claude/projects/<slug>/<id>.jsonl` — so a
+fake `$HOME` holding those two files is a complete stand-in, and the probe is the
+written-down version of the layout it depends on. The bug it caught while being
+written is the one to know about: the same token keys appear **twice** in a usage
+record, once at the top level and again inside `iterations`, and treating a
+top-level zero as "not filled in yet" let the second copy overwrite the first.
+Every number came out about 20k high, which is exactly plausible enough to be
+believed.
 
 One thing that probe cannot do, and it is worth knowing before you write another:
 **`display-message -p` expands formats with jobs switched off**, so a `#()` in

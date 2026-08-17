@@ -206,6 +206,11 @@ watch "$quiet" >/dev/null
 now=$(tmux display -p '%s')
 tmux set -p -t "$quiet" @office_still $(( now - 500 ))
 want "waiting a while: the border counts the minutes" "$(watch $quiet)" "  your turn 8m"
+# Past the hour it counts in hours, because by then the number is about the
+# session going cold rather than about your attention, and 80m does not read as
+# "over an hour" at a glance.
+tmux set -p -t "$quiet" @office_still $(( now - 4800 ))
+want "waiting past an hour: it counts in hours"      "$(watch $quiet)" "  your turn 1h20m"
 
 # --- a pane that is gone ------------------------------------------------------
 # The border of a pane can be redrawn as the pane dies. It must say nothing and

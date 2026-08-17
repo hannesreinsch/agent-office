@@ -1,0 +1,132 @@
+#!/bin/sh
+# office-ctx — how full is this desk's context window? One number for its border.
+#
+# The question this answers is "which of these four should I compact", and until
+# now the only way to ask it was to walk into each pane and run /context. With
+# three or four desks that is three or four interruptions to learn one number
+# each, and the one that matters is usually the desk you are NOT looking at.
+#
+#     2 CLAUDE · desk-2 · port the payment tests      412k   your turn 4m
+#
+# Colour is the point of it, and it is the theme that supplies it: under the warn
+# mark the number is furniture, over it the number is a decision. Both marks are
+# yours (OFFICE_CTX_WARN / OFFICE_CTX_ALARM) because "full" depends on the window
+# your plan gets, and that is not a thing this script can know.
+#
+# HOW A PANE FINDS ITS OWN SESSION, which is the part with no obvious answer.
+# There is no environment variable to read and nothing on the screen to scrape,
+# but Claude Code writes ~/.claude/sessions/<pid>.json for every session it runs,
+# and that file names the session id. So: take the process GROUP of the pane (the
+# agent is a child of the pane's shell, never the pane process itself, because
+# office appends a line to the command), ask which member of that group has such
+# a file, and read the id out of it. Exact, and no guessing from directory names —
+# two desks in one checkout would be indistinguishable that way.
+#
+# The transcript is then ~/.claude/projects/<slug>/<id>.jsonl, where the slug is
+# the LAUNCH directory with / and . beaten into -. It is the launch directory and
+# not the pane's current one: a session that cd'd somewhere else still writes to
+# the folder it started in, so deriving the slug from #{pane_current_path} finds
+# nothing. The id is also globbed for as a fallback, because the slug rule is
+# Claude Code's and could change under us; the id is in the filename either way.
+#
+# The number itself is what the model was last handed: input + cache-creation +
+# cache-read on the most recent usage record. That is the definition /context
+# uses, and cache-read is nearly all of it, which is why leaving it out (the
+# obvious reading of "input_tokens") reports a few hundred tokens for a session
+# holding two hundred thousand.
+#
+# ponytail: this is the ONE Claude Code special case in the package, and it is
+# shaped so that it costs nothing to anyone else — no ~/.claude/sessions
+# directory and it exits silently on the second line, so a codex or aider desk
+# simply has no number on its border. It is also one screen of sh with the file
+# layout written down above, which is the point: when Claude Code moves the
+# files, this is a ten-minute fix and not an archaeology project. Five forks per
+# desk per tick, and no caching by transcript mtime, because the tail is bounded
+# and a border that lags a tick behind the truth is not worth the state.
+id=${1:?usage: office-ctx <pane-id>}
+
+[ -d "$HOME/.claude/sessions" ] || exit 0     # not Claude Code: nothing to read
+
+IFS='|' read -r pid warn alarm swarn salarm <<EOF
+$(tmux display -p -t "$id" '#{pane_pid}|#{@office_ctx_warn}|#{@office_ctx_alarm}|#{@office_ctx_style_warn}|#{@office_ctx_style_alarm}' 2>/dev/null)
+EOF
+[ -n "$pid" ] || exit 0
+[ -n "$warn" ]  || warn=400000
+[ -n "$alarm" ] || alarm=600000
+
+# Which session is running in this pane. Splitting the JSON on quotes rather than
+# matching a pattern per key: `"sessionId":"VALUE"` splits so that the key and the
+# value are two fields apart, which needs no regex and cannot be fooled by the
+# order of the keys.
+IFS='|' read -r sid cwd <<EOF
+$(ps -ax -o pid=,pgid= 2>/dev/null | awk -v want="$pid" -v home="$HOME" '
+  { pg[$1] = $2 }
+  END {
+    g = pg[want]; if (g == "") exit
+    for (p in pg) if (pg[p] == g) {
+      f = home "/.claude/sessions/" p ".json"
+      all = ""; while ((getline l < f) > 0) all = all l
+      close(f)
+      if (all == "") continue
+      n = split(all, q, "\"")
+      sid = ""; cwd = ""
+      for (i = 1; i < n - 1; i++) {
+        if (q[i] == "sessionId" && sid == "") sid = q[i + 2]
+        if (q[i] == "cwd"       && cwd == "") cwd = q[i + 2]
+      }
+      if (sid == "") continue
+      print sid "|" cwd
+      exit
+    }
+  }')
+EOF
+[ -n "$sid" ] || exit 0
+
+slug=$(printf '%s' "$cwd" | tr '/.' '--')
+tx="$HOME/.claude/projects/$slug/$sid.jsonl"
+if [ ! -r "$tx" ]; then
+  tx=""
+  for f in "$HOME"/.claude/projects/*/"$sid.jsonl"; do
+    [ -r "$f" ] && { tx=$f; break; }
+  done
+fi
+[ -n "$tx" ] || exit 0
+
+# The last usage record. `tail -c` bounds the read to the end of what can be a
+# very large file, and the `^{` test throws away the partial line that bound
+# leaves behind. Only the first hit for each key on a line is taken: the
+# top-level usage comes before the per-iteration copies of the same keys.
+#
+# `seen[k]`, and not `if (value == 0)`, to mean "already had this key". A real
+# record often carries input_tokens 0 or cache_creation 0, and treating zero as
+# "not filled in yet" let the iterations copy overwrite it — every number came
+# out about 20k high, which is exactly plausible enough to be believed.
+ctx=$(tail -c 400000 "$tx" 2>/dev/null | awk '
+  /^\{/ && /"usage"/ {
+    n = split($0, q, "\"")
+    total = 0; delete seen
+    for (i = 1; i < n; i++) {
+      k = q[i]
+      if (k != "input_tokens" && k != "cache_creation_input_tokens" \
+          && k != "cache_read_input_tokens") continue
+      if (k in seen) continue
+      if (!match(q[i + 1], /^:[ ]*[0-9]+/)) continue
+      seen[k] = 1
+      total += substr(q[i + 1], RSTART + 1, RLENGTH - 1) + 0
+    }
+  }
+  END { print total + 0 }')
+[ -n "$ctx" ] && [ "$ctx" -gt 0 ] || exit 0
+
+if [ "$ctx" -ge 1000000 ]; then
+  num="$((ctx / 1000000)).$((ctx % 1000000 / 100000))M"
+else
+  num="$((ctx / 1000))k"
+fi
+
+if   [ "$ctx" -ge "$alarm" ]; then style=$salarm
+elif [ "$ctx" -ge "$warn" ];  then style=$swarn
+else                               style=""
+fi
+
+printf '  %s%s#[default]' "$style" "$num"
