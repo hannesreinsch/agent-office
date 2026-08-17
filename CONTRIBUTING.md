@@ -16,7 +16,7 @@ something that turns out to be out of scope.
 ## What this project is
 
 A tmux cockpit for running several coding-agent sessions at once. Around 1,900
-lines of zsh and tmux config, four probes that drive a real tmux server, and one
+lines of zsh and tmux config, five probes that drive a real tmux server, and one
 iTerm2 profile.
 
 **In scope:** making that faster, clearer or harder to get wrong. Support for
@@ -134,6 +134,13 @@ One thing that probe cannot do, and it is worth knowing before you write another
 one is always empty there. Measured on 3.7b — five calls over five seconds and
 the command never ran once. A drawn border does run it; a probe reading one back
 does not.
+
+CI runs all five on every push, on **macOS and Ubuntu**, and the gap between them
+is worth keeping: Ubuntu ships tmux 3.4 against macOS's 3.7b, and that alone
+found two version-dependent bugs on its first run — `#{!:...}` silently inverting
+a gate, and Shift-Enter arriving in a different encoding depending on which tmux
+you had. Prefer `#{==:x,0}` to `#{!:x}`, and pin anything whose default has moved
+between versions rather than relying on it.
 
 Run `zsh -n office.zsh` before you push. It catches most of it.
 

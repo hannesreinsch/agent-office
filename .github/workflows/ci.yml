@@ -1,15 +1,20 @@
 # Every probe, on a real tmux server, on both platforms this ships for.
 #
-# CONTRIBUTING.md says there is no test suite because almost everything here is a
-# side effect on a live tmux server. That is still true — and it is exactly what
-# these four do: each one builds a throwaway office on its own socket, two of
+# CONTRIBUTING.md says there is no test suite, because almost everything here is
+# a side effect on a live tmux server. That is still true — and it is exactly
+# what these five do: each builds a throwaway office on its own socket, two of
 # them attach a REAL client on a pty and type raw bytes at it, and they tear it
-# all down again. None of them needs a display, so they run headless unchanged.
+# all down again. None needs a display, so they run headless unchanged.
 #
-# macOS is in the matrix and not an afterthought: this is a macOS-first tool, and
-# half the traps recorded in the code are macOS-only (nano is pico, BSD ps, no
-# PRIMARY selection, pbcopy). Ubuntu is where WSL2 users live.
-name: probes
+# TWO PLATFORMS, because both genuinely run green and because each one has caught
+# something the other could not. macOS is what this is built on, and half the
+# traps recorded in the code are macOS-only: nano is pico, BSD ps, no PRIMARY
+# selection, pbcopy. Ubuntu is where the WSL2 users are, it ships tmux 3.4 against
+# macOS's 3.7b, and that gap alone found two version-dependent bugs on the first
+# run — a format operator that silently inverted the "your turn" gate, and
+# Shift-Enter arriving in a different encoding depending on which tmux you had.
+# A single-platform job would still be reporting both as fine.
+name: CI
 
 on:
   push:

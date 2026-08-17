@@ -1,6 +1,6 @@
 # agent-office
 
-[![probes](https://github.com/hannesreinsch/agent-office/actions/workflows/probes.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/probes.yml)
+[![CI](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml)
 
 **Build agents with agents, and talk to what you built, in one window.**
 Several coding-agent sessions side by side, each in its own git worktree, plus a
@@ -10,6 +10,12 @@ agent. Claude Code out of the box, Codex or any other CLI with one variable.
 ```sh
 office on
 ```
+
+![Three Claude Code sessions in one agent-office window. Two desks have finished and their borders say "your turn"; the one still working does not. Every desk carries how full its context window is.](docs/office.svg)
+
+<sup>A real office, captured from a real tmux client: three Claude Code sessions,
+the shell running `office doctor`, and the file list. Desks 2 and 3 have stopped
+and say so. Desk 1 is still working, so it does not.</sup>
 
 ```
 ┌─────────────────────────────┬──────────────┐
@@ -58,7 +64,7 @@ already built. Point it at your agent and it is a place to give it work.
 So the shape is: **agents on the left writing the code, the agent you built on
 the right doing the work.** One window, one command, and no web app in the
 middle. It is one zsh file, one tmux config and three small helpers, about 1,900
-lines all in, plus four probes that drive a real tmux server to check it. No
+lines all in, plus five probes that drive a real tmux server to check it. No
 daemon, no plugin manager, no config file, and one `git fetch` you can switch
 off.
 
@@ -85,7 +91,7 @@ symlink. That is the whole install: **no keyboard map, in any terminal.** Every 
 either `Shift+arrow` or the `Ctrl-Space` prefix, and every terminal on every OS
 already sends both.
 
-It changes no colours. If you want the look in the screenshots as well, that is
+It changes no colours. If you want the look in the screenshot above as well, that is
 `./install.sh --theme`, which writes an iTerm2 profile — see
 [the theme](#the-theme-if-you-want-it) below.
 
