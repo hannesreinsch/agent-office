@@ -1,0 +1,106 @@
+# Every probe, on a real tmux server, on both platforms this ships for.
+#
+# CONTRIBUTING.md says there is no test suite, because almost everything here is
+# a side effect on a live tmux server. That is still true — and it is exactly
+# what these five do: each builds a throwaway office on its own socket, two of
+# them attach a REAL client on a pty and type raw bytes at it, and they tear it
+# all down again. None needs a display, so they run headless unchanged.
+#
+# TWO PLATFORMS, because both genuinely run green and because each one has caught
+# something the other could not. macOS is what this is built on, and half the
+# traps recorded in the code are macOS-only: nano is pico, BSD ps, no PRIMARY
+# selection, pbcopy. Ubuntu is where the WSL2 users are, it ships tmux 3.4 against
+# macOS's 3.7b, and that gap alone found two version-dependent bugs on the first
+# run — a format operator that silently inverted the "your turn" gate, and
+# Shift-Enter arriving in a different encoding depending on which tmux you had.
+# A single-platform job would still be reporting both as fine.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  probes:
+    strategy:
+      fail-fast: false                  # a macOS-only break must not hide a Linux one
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only what the probes reach for. micro and bat are deliberately absent:
+      # the editor pane degrades to nano or vi and the preview to cat, which is
+      # the documented behaviour and worth having a run that proves it.
+      - name: install tmux, zsh, fzf, fd (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tmux zsh fzf fd-find
+          mkdir -p ~/.local/bin && ln -sf "$(command -v fdfind)" ~/.local/bin/fd
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: install tmux, zsh, fzf, fd (macOS)
+        if: runner.os == 'macOS'
+        run: brew install tmux fzf fd
+
+      - name: versions
+        run: |
+          tmux -V && zsh --version && git --version && python3 --version
+
+      # Cheap and catches most of it, which is why CONTRIBUTING asks for it
+      # before a push. Here it gates the rest: a syntax error makes every probe
+      # below fail in a way that reads like a real regression.
+      - name: syntax
+        run: |
+          zsh -n office.zsh
+          zsh -n bin/attn-probe
+          zsh -n bin/ctx-probe
+          zsh -n bin/zoom-probe
+          zsh -n install.sh
+          sh -n bin/office-attn
+          sh -n bin/office-ctx
+          sh -n bin/office-cwd
+          python3 -m py_compile bin/key-probe bin/mouse-probe
+
+      # tmux refuses to parse a config it cannot read, and a broken one would
+      # otherwise only surface as "the keys do nothing" inside a probe.
+      - name: the config loads
+        run: |
+          tmux -f /dev/null -L cfg new-session -d 'exec cat'
+          tmux -L cfg source-file "$PWD/office.tmux.conf"
+          tmux -L cfg source-file "$PWD/theme/office-theme.tmux.conf"
+          tmux -L cfg list-keys -T prefix | grep -qE '^bind-key +-T prefix +n ' \
+            || { echo "prefix n is not bound"; exit 1; }
+          tmux -L cfg kill-server
+
+      # A fresh HOME, so the installer is tested the way a stranger meets it:
+      # nothing sourced yet, no ~/.tmux.conf, and it has to be safe to run twice.
+      - name: install.sh on a fresh HOME, twice
+        run: |
+          export HOME="$RUNNER_TEMP/fresh"
+          mkdir -p "$HOME"
+          ./install.sh
+          ./install.sh
+          grep -c 'office.zsh' "$HOME/.zshrc"
+          test "$(grep -c 'source-file' "$HOME/.tmux.conf")" = 1
+          test -L "$HOME/.local/bin/office"
+
+      - name: zoom-probe
+        run: bin/zoom-probe
+
+      - name: attn-probe
+        run: bin/attn-probe
+
+      - name: ctx-probe
+        run: bin/ctx-probe
+
+      - name: key-probe
+        run: bin/key-probe
+
+      - name: mouse-probe
+        run: bin/mouse-probe

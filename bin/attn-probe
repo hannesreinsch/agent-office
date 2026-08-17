@@ -1,0 +1,240 @@
+#!/usr/bin/env zsh
+# attn-probe — a desk goes quiet. Does its border say "your turn", and only then?
+#
+# Run it after ANY change to bin/office-attn or to the @office_attn wiring in
+# office.tmux.conf. It builds a throwaway office on its own tmux server, puts a
+# fake agent in a desk that prints a line a second, and drives the real watcher.
+#
+#     bin/attn-probe
+#
+# What it is looking for is both halves of the contract, because either one alone
+# is useless:
+#
+#   - a desk that is WORKING never says your turn. A marker that appears while an
+#     agent is mid-task is worse than no marker: you learn to ignore it.
+#   - a desk that has STOPPED says it, after the wait and not before, and stops
+#     saying it the moment the pane moves again.
+#
+# And the gate, which is what keeps the whole thing cheap and quiet: the shell
+# and the file list are never asked, and neither is the pane you are sitting in.
+# That is checked by expanding @office_attn_gate the way tmux does, so the probe
+# tests the expression that actually ships rather than a copy of it.
+#
+# The two cases reading the code will not tell you about, both from real sessions:
+#
+#   - an idle agent pane is NOT perfectly still. Claude Code rotates a hint line
+#     under its input box every ~8s, so "still" has to tolerate a line moving,
+#     and a probe that only tests a frozen screen would pass a version that never
+#     fires in real use. One case here rotates a line and must still count as
+#     waiting.
+#   - an agent that is THINKING moves exactly one line, the spinner, which that
+#     same tolerance eats. That is what the second look half a second later is
+#     for, and the working cases here animate at that rate on purpose.
+emulate -L zsh
+# no err_return: every step is checked explicitly, and a probe that stops at the
+# first non-zero return stops inside the code it is testing.
+
+export TMUX_TMPDIR=$(mktemp -d)        # its own server, never yours
+export OFFICE_SOLO=1
+export OFFICE_SESSION_CMD='exec zsh' OFFICE_CHAT_CMD='exec zsh' OFFICE_CHAT_OPEN=0
+export OFFICE_DEFAULT_DESKS=2
+export OFFICE_ATTN_SECS=4              # the probe cannot wait 20s five times over
+repo=$(mktemp -d)/probe; mkdir -p "$repo"; git -C "$repo" init -q
+
+here=${0:A:h}
+source "$here/../office.zsh"
+_office_attach(){ : }; _office_update_check(){ : }; _office_reap(){ : }
+_office_always_on_up(){ : }; _office_reload_conf(){ : }; _office_say(){ : }
+
+cleanup() { tmux kill-server 2>/dev/null; rm -rf "$TMUX_TMPDIR" "${repo:h}" }
+trap cleanup EXIT INT TERM
+
+fail=0
+cd "$repo"
+_office_open "$repo" >/dev/null 2>&1
+s=$(_office_sessname "$repo")
+# the config the office actually ships, on this server: the gate and the readout
+# are options in it, and half of what this probe checks is that expression.
+tmux source-file "$here/../office.tmux.conf" 2>/dev/null
+sleep 1
+
+pane_of() { tmux list-panes -t "=$s" -F '#{@office_kind} #{pane_id}' | awk -v k="$1" '$1==k {print $2; exit}' }
+desks()   { tmux list-panes -t "=$s" -F '#{@office_kind} #{pane_id}' | awk '$1=="CLAUDE" {print $2}' }
+watch()   { "$here/office-attn" "$1" }          # exactly what the border runs
+gate()    { tmux display -p -t "$1" '#{E:@office_attn_gate}' }
+
+# What a desk is DOING is set by respawning it, never by typing at it. `send-keys`
+# raced the shell's own startup: on a cold runner the line and its Enter landed
+# while zsh was still reading its rc, went nowhere, and the pane sat at an empty
+# prompt — so a probe that meant to watch a busy desk watched an idle one and
+# reported "your turn" as a failure of the watcher. respawn-pane -k has no shell
+# to wait for, keeps the pane's @office_kind, and is the same on both platforms.
+#
+# All four are POSIX sh, run by the sh tmux hands them to, and none needs $TERM or
+# tput: `printf` there understands \033 itself.
+run() { tmux respawn-pane -k -t "$1" "$2" 2>/dev/null }
+STREAM='i=0; while :; do i=$((i+1)); echo "line $i"; sleep 0.2; done'
+THINK='i=0; while :; do i=$((i+1)); printf "\033[4;1Hthinking %s   " "$i"; sleep 0.1; done'
+ROTATE='i=0; while :; do i=$((i+1)); printf "\033[4;1Hhint %s        " "$i"; sleep 8; done'
+STILL='exec sleep 86400'
+
+ok()   { print "  ok   $1" }
+bad()  { print -u2 "  FAIL $1"; fail=1 }
+want() { [[ $2 == $3 ]] && ok "$1" || bad "$1: got '$2', wanted '$3'" }
+
+busy=$(desks | head -1)
+quiet=$(desks | tail -1)
+[[ -n $busy && -n $quiet && $busy != $quiet ]] || { print -u2 "probe setup failed: two desks needed"; exit 1 }
+# neither desk may be the active pane, or the gate turns them both off
+tmux select-pane -t "$(pane_of SHELL)"
+
+# --- the gate ----------------------------------------------------------------
+want "gate: a desk you are not in is watched"  "$(gate $busy)" 1
+want "gate: the SHELL is never watched"        "$(gate "$(pane_of SHELL)")" 0
+want "gate: the FILE EDITOR is never watched"  "$(gate "$(pane_of EDITOR)")" 0
+tmux select-pane -t "$busy"
+want "gate: the pane you are IN is not watched" "$(gate $busy)" 0
+tmux select-pane -t "$(pane_of SHELL)"
+# An office opened by an older office.zsh has no @office_home, and running a
+# path that is not there on every border redraw is not an acceptable way to fail.
+home=$(tmux show -gqv @office_home)
+tmux set -gu @office_home
+want "gate: no @office_home turns it off"      "$(gate $busy)" 0
+tmux set -g @office_home "$home"
+want "gate: @office_home is what office.zsh wrote" "$home" "${here:h}"
+
+# --- a desk that is working ---------------------------------------------------
+# A line a second, which is the least any agent redraws. The first look has no
+# snapshot to compare against, so it can only start the clock — that is the
+# contract, and a marker on the first look would be a marker on a pane that has
+# only just opened.
+run "$busy" "$STREAM"
+sleep 1
+want "working: the first look only starts the clock" "$(watch $busy)" ""
+for i in 1 2 3; do sleep 2; done
+want "working: still nothing after $(( 6 ))s of output" "$(watch $busy)" ""
+sleep 3
+want "working: and nothing past the wait"            "$(watch $busy)" ""
+
+# --- a desk that is THINKING --------------------------------------------------
+# The regression this whole file was rewritten for, and the one a version that
+# only compares between ticks gets wrong. Between submitting a prompt and the
+# first output, an agent redraws ONE line — its spinner and elapsed timer — and
+# nothing else on the screen moves. One line is inside the between-ticks
+# tolerance, so that check alone calls it still and the border says "your turn"
+# for as long as the agent takes to think. Eighteen seconds of that, measured,
+# is what put the second look half a second later into office-attn.
+run "$busy" "$THINK"
+sleep 1
+watch "$busy" >/dev/null                # settle: respawning was itself a change
+for i in 1 2 3 4; do
+  sleep 2
+  want "thinking: one line at 10Hz is not waiting ($i)" "$(watch $busy)" ""
+done
+
+# --- a desk that has stopped --------------------------------------------------
+run "$busy" "$STILL"
+sleep 1
+watch "$busy" >/dev/null                # respawning it was itself a change
+want "stopped: nothing before the wait is up"        "$(watch $quiet; :)" ""
+# $quiet has printed nothing since it opened, so its clock started on the first
+# look above. Give it the wait and it has to speak.
+watch "$quiet" >/dev/null; sleep $(( OFFICE_ATTN_SECS + 1 ))
+want "stopped: says your turn once the wait is up"   "$(watch $quiet)" "  your turn"
+want "stopped: the busy desk says it too, now"       "$(watch $busy)"  "  your turn"
+
+# --- the border itself --------------------------------------------------------
+# Everything above drives the watcher directly, which leaves one link untested:
+# that a BORDER asks it at all. A theme is allowed to override
+# pane-border-format, so `#{E:@office_attn}` is a line someone can drop by
+# accident and nothing else would notice.
+#
+# So expand the shipped format the way tmux does when it draws one — read back
+# out of the option that ships, never copied in here.
+#
+# What you can see this way is the WIRING, not the words: `display-message -p`
+# expands formats with jobs switched off, so a #() in one is always empty here.
+# (Measured on 3.7b: five calls over five seconds, the command never ran once.)
+# A drawn border does run it, which is what every check above stands in for. What
+# is left to prove is that the gate's branch is taken for a desk and not for
+# anything else, and that is exactly what the style seam either side of the job
+# shows.
+border() { tmux display -p -t "$1" "$(tmux show -gqv pane-border-format)" 2>/dev/null }
+got=$(border "$quiet")
+[[ $got == *"#[default]"* ]] && ok "a desk border asks the watcher" \
+  || bad "a desk border asks the watcher: no @office_attn in '$got'"
+got=$(border "$(pane_of SHELL)")
+[[ $got != *"#[default]"* ]] && ok "the SHELL border does not" \
+  || bad "the SHELL border does not: '$got'"
+
+# --- and it takes it back -----------------------------------------------------
+# STREAM and then STILL, not one line printed once. A single line arriving is
+# INSIDE the between-looks tolerance, so the clock never restarted and the marker
+# stayed up — and that passed on the author's machine only because his prompt is
+# two lines tall and an empty HOME's is one. A fixture that depends on the shape
+# of somebody's prompt is not a fixture.
+run "$quiet" "$STREAM"
+sleep 1
+watch "$quiet" >/dev/null
+want "resumed: the marker is gone the moment it moves" "$(watch $quiet)" ""
+run "$quiet" "$STILL"
+sleep 1
+watch "$quiet" >/dev/null
+sleep $(( OFFICE_ATTN_SECS + 1 ))
+want "resumed: and comes back when it stops again"     "$(watch $quiet)" "  your turn"
+
+# --- the trap: one line moving is still "waiting" ----------------------------
+# This is the case a hash of the screen gets wrong, and it is the normal state of
+# a real idle agent pane, not an edge case.
+# printf and not print, and a fixed row: a NEWLINE at the bottom of an eleven-row
+# pane scrolls it, and a scrolled pane is every line changing at once, which is
+# the working state and not this one.
+# Every 8s, which is what Claude Code does. The rate is the point: at 8s the
+# half-second look almost never lands on the change, and the between-looks
+# compare sees one line. Rotate it once a second instead and the probe measures
+# its own fake rather than the case it stands in for.
+run "$quiet" "$ROTATE"
+sleep 1
+watch "$quiet" >/dev/null               # respawning it was itself a change
+# Polled, the way a border is: an unlucky look costs one tick and the next one
+# gets it. A single-shot check here would be a coin toss dressed up as a test.
+got=""
+for i in {1..10}; do
+  sleep 1.5
+  got=$(watch $quiet)
+  [[ $got == "  your turn"* ]] && break
+done
+[[ $got == "  your turn"* ]] && ok "one line rotating is still waiting" \
+  || bad "one line rotating is still waiting: got '$got'"
+
+# --- minutes ------------------------------------------------------------------
+# Waiting eight minutes for the eight-minute readout is not a probe, it is a
+# coffee break. The clock is a tmux option, so move it.
+#
+# The order matters and is the trap: the watcher resets that option itself the
+# moment the screen has moved, so setting it while the pane is still settling
+# gets it overwritten by the very next look. Let the screen settle, take one look
+# to store it, THEN move the clock.
+run "$quiet" "$STILL"
+sleep 1
+watch "$quiet" >/dev/null
+now=$(tmux display -p '%s')
+tmux set -p -t "$quiet" @office_still $(( now - 500 ))
+want "waiting a while: the border counts the minutes" "$(watch $quiet)" "  your turn 8m"
+# Past the hour it counts in hours, because by then the number is about the
+# session going cold rather than about your attention, and 80m does not read as
+# "over an hour" at a glance.
+tmux set -p -t "$quiet" @office_still $(( now - 4800 ))
+want "waiting past an hour: it counts in hours"      "$(watch $quiet)" "  your turn 1h20m"
+
+# --- a pane that is gone ------------------------------------------------------
+# The border of a pane can be redrawn as the pane dies. It must say nothing and
+# exit clean, not print an error into the border.
+tmux kill-pane -t "$quiet" 2>/dev/null
+sleep 0.5
+out=$(watch "$quiet" 2>&1); rc=$?
+want "a dead pane says nothing"        "$out" ""
+want "a dead pane exits clean"         "$rc"  0
+
+(( fail )) && { print -u2 "\nattn-probe FAILED"; exit 1 }
+print "\nattn-probe passed"

@@ -24,6 +24,18 @@ SOCK = "office-key-probe"
 CONF = pathlib.Path(__file__).resolve().parent.parent / "office.tmux.conf"
 WINDOW = 12  # seconds the recorder pane listens for
 
+# The config is loaded when the SERVER STARTS, with -f, and not with a
+# `source-file` afterwards. Measured, because the difference is invisible in the
+# options: after a late source-file `show -s extended-keys` says `always` and
+# `terminal-features` carries `xterm*:extkeys`, exactly as it should, and
+# Shift-Enter still arrives at the pane as a bare \r. Loaded at start it works.
+#
+# What that cost before it was found: this probe silently borrowed the AUTHOR's
+# ~/.tmux.conf, which sources office.tmux.conf and therefore armed the server for
+# it. Anyone who cloned the repo and ran the probe before installing office got
+# "KEY HANDLING CHANGED" against untouched code, and so did CI.
+
+
 MOVES = "moves the pane"
 
 # raw bytes in at the client -> what the pane must receive, or MOVES.
@@ -31,11 +43,22 @@ MOVES = "moves the pane"
 # Shift-Enter appears twice on purpose: a terminal may announce it in either
 # dialect, and tmux normalises both to the one form. That is what lets an app
 # tell Shift-Enter from Enter, which is the whole point of the setting.
+# Shift-Enter is the one key whose expected bytes are a SET rather than a value.
+# tmux picks the encoding by version - 3.4 forwards CSI 13;2u, 3.5 and later
+# CSI 27;2;13~, which is when extended-keys-format arrived with `xterm` as its
+# default - and the office deliberately does not pin it: the option does not exist
+# on 3.4, so setting it would print "invalid option" into every reload of the very
+# config that is meant to make keys work. What has to hold is that the MODIFIER
+# survives at all, in either dialect, because an app that negotiated extended keys
+# reads both. Asserting one dialect made this probe fail on Ubuntu against code
+# that was fine.
+EITHER_SHIFT_ENTER = (rb"\x1b[27;2;13~", rb"\x1b[13;2u")
+
 CASES = [
     (rb"\x1b[1;2D", "Shift-Left",              MOVES),
     (rb"\x1b[1;2C", "Shift-Right",             MOVES),
-    (rb"\x1b[27;2;13~", "Shift-Enter (xterm)", rb"\x1b[27;2;13~"),
-    (rb"\x1b[13;2u", "Shift-Enter (csi-u)",    rb"\x1b[27;2;13~"),
+    (rb"\x1b[27;2;13~", "Shift-Enter (xterm)", EITHER_SHIFT_ENTER),
+    (rb"\x1b[13;2u", "Shift-Enter (csi-u)",    EITHER_SHIFT_ENTER),
     (rb"\r", "Enter",         rb"\r"),
     (rb"\t", "Tab",           rb"\t"),
     (rb"\x7f", "Backspace",   rb"\x7f"),
@@ -72,9 +95,8 @@ def tmux(*a):
 def main():
     out = pathlib.Path(tempfile.mkdtemp()) / "got"
     tmux("kill-server")
-    tmux("new-session", "-d", "-x", "120", "-y", "24",
+    tmux("-f", str(CONF), "new-session", "-d", "-x", "120", "-y", "24",
          f"{sys.executable} {__file__} --record {out}")
-    tmux("source-file", str(CONF))
     tmux("split-window", "-h", "cat")   # somewhere for a movement key to go
     tmux("select-pane", "-t", "1")
 
@@ -106,12 +128,14 @@ def main():
     for sent, label, want in CASES:
         if want is MOVES:
             continue
-        want = raw(want)
-        if got.startswith(want):
-            print(f"  ok   {label:22} pane got {want!r}")
-            got = got[len(want):]
+        options = [raw(w) for w in (want if isinstance(want, tuple) else (want,))]
+        hit = next((w for w in options if got.startswith(w)), None)
+        if hit is not None:
+            print(f"  ok   {label:22} pane got {hit!r}")
+            got = got[len(hit):]
         else:
-            print(f"  FAIL {label:22} expected {want!r}, pane got {got!r}")
+            print(f"  FAIL {label:22} expected one of "
+                  f"{[o for o in options]!r}, pane got {got!r}")
             bad += 1
             break
     if got:

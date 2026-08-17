@@ -1,5 +1,7 @@
 # agent-office
 
+[![CI](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml)
+
 **Build agents with agents, and talk to what you built, in one window.**
 Several coding-agent sessions side by side, each in its own git worktree, plus a
 shell, a file editor that follows that shell, and a chat pane wired to your own
@@ -8,6 +10,12 @@ agent. Claude Code out of the box, Codex or any other CLI with one variable.
 ```sh
 office on
 ```
+
+![Three Claude Code sessions in one agent-office window. Two desks have finished and their borders say "your turn"; the one still working does not. Every desk carries how full its context window is.](docs/office.svg)
+
+<sup>A real office, captured from a real tmux client: three Claude Code sessions,
+the shell running `office doctor`, and the file list. Desks 2 and 3 have stopped
+and say so. Desk 1 is still working, so it does not.</sup>
 
 ```
 ┌─────────────────────────────┬──────────────┐
@@ -55,8 +63,10 @@ already built. Point it at your agent and it is a place to give it work.
 
 So the shape is: **agents on the left writing the code, the agent you built on
 the right doing the work.** One window, one command, and no web app in the
-middle. It is about 850 lines of zsh and a tmux config. No daemon, no plugin manager,
-no config file, no network calls.
+middle. It is one zsh file, one tmux config and three small helpers, about 1,900
+lines all in, plus five probes that drive a real tmux server to check it. No
+daemon, no plugin manager, no config file, and one `git fetch` you can switch
+off.
 
 ## Setup
 
@@ -81,7 +91,7 @@ symlink. That is the whole install: **no keyboard map, in any terminal.** Every 
 either `Shift+arrow` or the `Ctrl-Space` prefix, and every terminal on every OS
 already sends both.
 
-It changes no colours. If you want the look in the screenshots as well, that is
+It changes no colours. If you want the look in the screenshot above as well, that is
 `./install.sh --theme`, which writes an iTerm2 profile — see
 [the theme](#the-theme-if-you-want-it) below.
 
@@ -197,6 +207,79 @@ set -g status-left "#{@office_bar} "
 set -g status-left-length 70
 ```
 
+### Which one is waiting on you
+
+A desk that has stopped moving for twenty seconds says so on its own border,
+with how long it has been waiting:
+
+```
+ 2 CLAUDE · desk-2 · rewrite the auth module              your turn 4m
+```
+
+Nothing to press, nothing to install, and no hook in your agent's settings. It
+works this out by watching the pane rather than by knowing anything about what is
+running in it, so it is the same for `claude`, `codex` or whatever
+`OFFICE_SESSION_CMD` points at: an agent that is working **redraws** — a spinner,
+an elapsed timer, output arriving — and an agent that has stopped does not.
+
+It takes two looks half a second apart, because either one alone is wrong, and
+both of those were measured rather than reasoned about. An idle Claude Code pane
+is not perfectly still: it rotates a hint line under the input box every eight
+seconds, so a screen fingerprint never settles and the marker would never appear.
+An agent that is *thinking* moves exactly one line, its spinner, so tolerating a
+line means the border says "your turn" for as long as the agent takes to think —
+eighteen seconds of it, in the session that produced this. What separates them is
+the rate, not the amount: a spinner moves within half a second, a hint that
+rotates every eight does not.
+
+The pane you are sitting in never says it, because you are already looking at it,
+and neither do the shell and the file list. With the theme it arrives in
+`$ACCENT`, which now has exactly one meaning anywhere on the screen. The wait is
+`OFFICE_ATTN_SECS` and it is the only knob: raise it if your agent can go quiet
+mid-task without redrawing anything at all. `bin/attn-probe` is the check.
+
+**The number keeps counting, and past the hour it means something else.** It is
+the time since that agent last did anything at all, so it is also the age of its
+session:
+
+```
+ 3 CLAUDE · desk-3 · port the payment tests           your turn 1h20m
+```
+
+Most providers stop caching a conversation that has been idle that long — Claude
+Code's own prompt cache holds for an hour — so the next thing you say to that
+desk is charged as if the conversation were new. `1h20m` says that at a glance
+and `80m` does not. The office does not know anybody's billing rules and does not
+pretend to: it states the age, and you know what an hour costs you.
+
+### How full each desk's context window is
+
+The other number you had to walk into a pane to learn. Every desk carries it:
+
+```
+ 2 CLAUDE · desk-2 · port the payment tests            412k   your turn 4m
+```
+
+Quiet while it is furniture, and it climbs when it becomes a decision: plain
+under `OFFICE_CTX_WARN` (400k), the theme's accent above it, and its alarm colour
+above `OFFICE_CTX_ALARM` (600k). Move both to suit the window your plan gets —
+`120000` and `170000` are the sensible pair for a 200k window. Now you can see
+which of four desks to compact without interrupting any of them to ask.
+
+It is the same figure `/context` reports: input plus cache-creation plus
+cache-read on that session's last turn, read straight out of Claude Code's own
+transcript. Finding it needs no configuration and no hook in your settings —
+Claude Code writes `~/.claude/sessions/<pid>.json` for every session it runs, so
+a pane asks its own process group which of its children has one of those and
+reads the session id out of it. Exact even with two desks in one checkout, which
+is more than guessing from directory names can manage.
+
+**This is the one Claude Code special case in the package**, and it costs nothing
+to anyone else: no `~/.claude/sessions` and `bin/office-ctx` exits on its second
+line, so a `codex` or `aider` desk simply has no number. It is one screen of
+`sh` with the file layout written down at the top, so when Claude Code moves
+those files it is a ten-minute fix. `bin/ctx-probe` is the check, and it needs no
+API call: a fake `$HOME` with those two files in it is a complete stand-in.
 
 ### The one chord, and why it is only arrows
 
@@ -350,6 +433,10 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_DEFAULT_DESKS` | `1` | sessions opened at startup |
 | `OFFICE_STRIP_WIDTH` | `32` | percent of the window the right strip takes |
 | `OFFICE_REAP_HOURS` | `12` | parked panes older than this are closed on `office on` |
+| `OFFICE_ATTN_SECS` | `20` | how long a desk sits still before its border says **your turn** |
+| `OFFICE_CTX_WARN` | `400000` | context tokens at which a desk's number takes the accent colour |
+| `OFFICE_CTX_ALARM` | `600000` | ...and the alarm colour. Use `120000` / `170000` for a 200k window |
+| `OFFICE_UPDATE_CHECK` | `1` | `0` stops the background `git fetch` on `office on`. The only network call there is |
 | `OFFICE_CHAT_LABEL` | `AGENT CHAT` | name on the chat pane's border |
 | `OFFICE_CHAT_CMD` | your shell | what the chat pane runs |
 | `OFFICE_CHAT_OPEN` | on once `OFFICE_CHAT_CMD` is set | whether the chat pane opens at startup |
@@ -518,7 +605,8 @@ source-file ~/agent-office/theme/office-theme.tmux.conf  # optional
 
 Source it second, because it overrides the pane border. Monochrome by
 conviction: state is tone, weight and inversion, never hue, and exactly one
-colour is allowed on the bar. It also brings the clickable strip described above.
+colour is allowed anywhere — it means **your turn**, and nothing else on the
+screen is ever given it. It also brings the clickable strip described above.
 
 **The right-hand side of the bar is yours.** The theme puts a git branch and a
 clock there and nothing else. To add your own, put one line in your
@@ -582,9 +670,12 @@ Put your own `set -g pane-border-format` and status lines AFTER the
 
 ## Safety
 
-No network calls anywhere in the code. Nothing is uploaded, phoned home or
-fetched at runtime, and there are no dependencies to install beyond the tools
-listed above.
+**One network call, and you can turn it off.** `office on` runs `git fetch` in
+the background against this repo's own remote, so it can tell you when you are
+behind, and it never pulls on its own. That is the only socket anything here
+opens: nothing is uploaded, nothing is phoned home, no telemetry, no analytics,
+and there are no dependencies to install beyond the tools listed above.
+`OFFICE_UPDATE_CHECK=0` and even that one is gone.
 
 **What the installer touches**, and nothing else:
 

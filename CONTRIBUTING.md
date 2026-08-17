@@ -15,8 +15,9 @@ something that turns out to be out of scope.
 
 ## What this project is
 
-A tmux cockpit for running several coding-agent sessions at once. Around 650
-lines of zsh, a tmux config, and one iTerm2 profile.
+A tmux cockpit for running several coding-agent sessions at once. Around 1,900
+lines of zsh and tmux config, five probes that drive a real tmux server, and one
+iTerm2 profile.
 
 **In scope:** making that faster, clearer or harder to get wrong. Support for
 agents other than Claude Code, provided it stays a variable and not a special
@@ -104,6 +105,43 @@ every "which column is this in" question in `office.zsh` is answered about a
 room that is not on screen — and `_office_layout_ok` then calls a perfectly good
 office broken and hands it to `_office_relayout`, which breaks every pane out to
 the stash. Reading the code does not show you this; the probe does.
+
+Touched `bin/office-attn`, `@office_attn_gate` or a `pane-border-format`? Run
+`bin/attn-probe`. It builds a throwaway office and puts fake agents in the desks
+that move the way real ones do, then drives the real watcher. Two cases in it are
+the whole reason the file is shaped the way it is, and neither is visible in the
+code: **an idle agent pane is not perfectly still** (Claude Code rotates a hint
+line under its input box, so "still" has to tolerate a line moving), and **an
+agent that is thinking moves exactly one line** (its spinner, which that same
+tolerance then eats — worth eighteen seconds of a border saying "your turn"
+mid-task before it was measured). One case here rotates a line and must still
+count as waiting; another animates one line at 10Hz and must never. It also
+checks the gate by expanding the expression that ships rather than a copy of it.
+
+Touched `bin/office-ctx`? Run `bin/ctx-probe`. No Claude Code and no API call
+needed: that script reads exactly three things — the pane's process group,
+`~/.claude/sessions/<pid>.json` and `~/.claude/projects/<slug>/<id>.jsonl` — so a
+fake `$HOME` holding those two files is a complete stand-in, and the probe is the
+written-down version of the layout it depends on. The bug it caught while being
+written is the one to know about: the same token keys appear **twice** in a usage
+record, once at the top level and again inside `iterations`, and treating a
+top-level zero as "not filled in yet" let the second copy overwrite the first.
+Every number came out about 20k high, which is exactly plausible enough to be
+believed.
+
+One thing that probe cannot do, and it is worth knowing before you write another:
+**`display-message -p` expands formats with jobs switched off**, so a `#()` in
+one is always empty there. Measured on 3.7b — five calls over five seconds and
+the command never ran once. A drawn border does run it; a probe reading one back
+does not.
+
+CI runs all five on every push, on **macOS and Ubuntu**, and the gap between them
+is worth keeping: Ubuntu ships tmux 3.4 against macOS's 3.7b, and that alone
+found two version-dependent bugs on its first run — `#{!:...}` silently inverting
+a gate, and a probe asserting one Shift-Enter encoding when tmux picks it by
+version. Prefer `#{==:x,0}` to `#{!:x}`. And check an option EXISTS on 3.4 before
+reaching for it: `extended-keys-format` does not, so setting it would print
+`invalid option` into every reload of the config that exists to make keys work.
 
 Run `zsh -n office.zsh` before you push. It catches most of it.
 

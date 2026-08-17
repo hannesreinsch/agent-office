@@ -52,9 +52,8 @@ def main():
     # -f /dev/null: probe the file in this checkout, never the user's ~/.tmux.conf
     # -n shell, and every target below is a NAME: base-index is still 0 at
     # creation time, so the first window is 0 and "-t 1" would hit the second one
-    tmux("-f", "/dev/null", "new-session", "-d", "-n", "shell",
+    tmux("-f", str(CONF), "new-session", "-d", "-n", "shell",
          "-x", "80", "-y", "20", "sh")
-    tmux("source-file", str(CONF))
     tmux("set", "-g", "status", "off")
     tmux("set", "-g", "pane-border-status", "off")
     # the clipboard, redirected: a probe must not walk off with your real one

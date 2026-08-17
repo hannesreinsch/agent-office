@@ -1,0 +1,144 @@
+#!/usr/bin/env zsh
+# ctx-probe — does a desk's border report the right context number, and go loud
+# at the right marks?
+#
+# Run it after ANY change to bin/office-ctx or to Claude Code's session and
+# transcript layout.
+#
+#     bin/ctx-probe
+#
+# It needs no Claude Code and no API call. bin/office-ctx reads exactly three
+# things — the pane's process group, ~/.claude/sessions/<pid>.json, and
+# ~/.claude/projects/<slug>/<id>.jsonl — so a fake $HOME containing those two
+# files is a complete, deterministic stand-in, and the pane's own pid stands in
+# for the agent's. That also means this probe is the written-down version of the
+# layout office-ctx depends on: if Claude Code moves those files, this fails and
+# the comment at the top of office-ctx tells you what to change.
+#
+# The two cases worth having on purpose:
+#
+#   - cache_read is nearly ALL of a real context. Reading "input_tokens" alone is
+#     the obvious mistake and reports a few hundred tokens for a session holding
+#     two hundred thousand, so the fixture below has that exact shape: 1 input,
+#     1007 created, 217198 read.
+#   - the same keys appear AGAIN inside "iterations", after the top-level ones. A
+#     reader that takes the last hit rather than the first gets a plausible wrong
+#     answer, which is the worst kind, so the fixture carries both.
+emulate -L zsh
+
+export TMUX_TMPDIR=$(mktemp -d)
+fake=$(mktemp -d)                       # a $HOME with nothing but Claude's files
+here=${0:A:h}
+cleanup() { tmux -L ctxprobe kill-server 2>/dev/null; rm -rf "$TMUX_TMPDIR" "$fake" }
+trap cleanup EXIT INT TERM
+
+fail=0
+ok()   { print "  ok   $1" }
+bad()  { print -u2 "  FAIL $1"; fail=1 }
+want() { [[ $2 == $3 ]] && ok "$1" || bad "$1: got '$2', wanted '$3'" }
+
+tmux -L ctxprobe -f /dev/null new-session -d -x 80 -y 12 'exec cat'
+pane=$(tmux -L ctxprobe list-panes -F '#{pane_id}' | head -1)
+pid=$(tmux -L ctxprobe display -p -t "$pane" '#{pane_pid}')
+tmux -L ctxprobe set -g @office_ctx_warn 400000
+tmux -L ctxprobe set -g @office_ctx_alarm 600000
+tmux -L ctxprobe set -g @office_ctx_style_warn 'WARN>'
+tmux -L ctxprobe set -g @office_ctx_style_alarm 'ALARM>'
+
+# office-ctx calls plain `tmux`, so point that at this server, and hand it the
+# fake HOME. Everything else about it is real.
+shim=$(mktemp -d)
+# printf, not `print -r`: -r is exactly the flag that stops \n being a newline, so
+# that wrote a one-line file whose shebang ran nothing, every call returned empty,
+# and the two "must be silent" checks passed while testing nothing at all.
+printf '#!/bin/sh\nexec %s -L ctxprobe "$@"\n' "$(command -v tmux)" > $shim/tmux
+chmod +x $shim/tmux
+ctx() { PATH="$shim:$PATH" HOME="$fake" "$here/office-ctx" "$pane" }
+
+# --- no Claude Code at all ----------------------------------------------------
+want "no ~/.claude/sessions: silent" "$(ctx)" ""
+
+sid=00000000-1111-2222-3333-444444444444
+mkdir -p "$fake/.claude/sessions"
+print -r -- "{\"pid\":$pid,\"sessionId\":\"$sid\",\"cwd\":\"/tmp/demo/repo\",\"kind\":\"interactive\"}" \
+  > "$fake/.claude/sessions/$pid.json"
+want "a session but no transcript: silent" "$(ctx)" ""
+
+# The slug rule: the LAUNCH directory with / and . beaten into -.
+slug=$(print -r -- /tmp/demo/repo | tr '/.' '--')
+mkdir -p "$fake/.claude/projects/$slug"
+tx="$fake/.claude/projects/$slug/$sid.jsonl"
+
+# <input> <created> <read> — written the way Claude Code writes it, iterations and
+# all, so the "first hit per key" rule is actually under test.
+fixture() {
+  print -r -- "{\"type\":\"user\",\"message\":{\"role\":\"user\"}}"
+  print -r -- "{\"type\":\"assistant\",\"message\":{\"usage\":{\"input_tokens\":$1,\"cache_creation_input_tokens\":$2,\"cache_read_input_tokens\":$3,\"output_tokens\":683,\"output_tokens_details\":{\"thinking_tokens\":120},\"iterations\":[{\"input_tokens\":9999,\"output_tokens\":1,\"cache_read_input_tokens\":9999,\"cache_creation_input_tokens\":9999}]}}}"
+}
+
+fixture 1 1007 217198 > "$tx"
+want "a real record: input + created + read" "$(ctx)" "  218k#[default]"
+
+# ...and the number has to follow the LAST record, not the first.
+fixture 2 3000 300000 >> "$tx"
+want "a later record wins" "$(ctx)" "  303k#[default]"
+
+# --- the marks -----------------------------------------------------------------
+fixture 0 0 399999 > "$tx"
+want "just under the warn mark: no style" "$(ctx)" "  399k#[default]"
+fixture 0 0 400000 > "$tx"
+want "at the warn mark: warn style" "$(ctx)" "  WARN>400k#[default]"
+fixture 0 0 512345 > "$tx"
+want "between the marks: still warn" "$(ctx)" "  WARN>512k#[default]"
+fixture 0 0 600000 > "$tx"
+want "at the alarm mark: alarm style" "$(ctx)" "  ALARM>600k#[default]"
+fixture 0 0 1250000 > "$tx"
+want "over a million: reads in M" "$(ctx)" "  ALARM>1.2M#[default]"
+
+# --- the marks are the operator's ----------------------------------------------
+tmux -L ctxprobe set -g @office_ctx_warn 120000
+tmux -L ctxprobe set -g @office_ctx_alarm 170000
+fixture 0 0 130000 > "$tx"
+want "a 200k window: warn where you put it" "$(ctx)" "  WARN>130k#[default]"
+tmux -L ctxprobe set -g @office_ctx_warn 400000
+tmux -L ctxprobe set -g @office_ctx_alarm 600000
+
+# --- the fallback when the slug rule does not hold -----------------------------
+# The slug is Claude Code's rule, not ours, so the id is globbed for as well.
+mkdir -p "$fake/.claude/projects/some-other-slug"
+mv "$tx" "$fake/.claude/projects/some-other-slug/$sid.jsonl"
+fixture 0 0 250000 > "$fake/.claude/projects/some-other-slug/$sid.jsonl"
+rmdir "$fake/.claude/projects/$slug"
+want "slug moved: found by session id anyway" "$(ctx)" "  250k#[default]"
+
+# --- rubbish in ----------------------------------------------------------------
+# A border is not a place to print a parse error, and half a line is what `tail -c`
+# leaves behind on any file bigger than its bound.
+print -r -- '{"type":"assistant","message":{"usage":{"cache_read_' \
+  > "$fake/.claude/projects/some-other-slug/$sid.jsonl"
+want "a truncated record: silent"             "$(ctx)" ""
+print -r -- 'not json at all' > "$fake/.claude/projects/some-other-slug/$sid.jsonl"
+want "not json at all: silent"                "$(ctx)" ""
+
+# --- the border asks for it ------------------------------------------------------
+# Last, because sourcing the theme replaces the style options everything above
+# depends on. A theme is allowed to override pane-border-format, so `#{E:@office_ctx}`
+# is a line someone can drop by accident and nothing else would notice.
+tmux -L ctxprobe source-file "$here/../office.tmux.conf" 2>/dev/null
+fmt=$(tmux -L ctxprobe show -gqv pane-border-format)
+[[ $fmt == *'#{E:@office_ctx}'* ]] && ok "office.tmux.conf's border asks for it" \
+  || bad "office.tmux.conf's border asks for it: not in '$fmt'"
+tmux -L ctxprobe source-file "$here/../theme/office-theme.tmux.conf" 2>/dev/null
+fmt=$(tmux -L ctxprobe show -gqv pane-border-format)
+[[ $fmt == *'#{E:@office_ctx}'* ]] && ok "and the theme keeps it" \
+  || bad "and the theme keeps it: not in '$fmt'"
+# The theme is the only place a colour may come from, and it has to fill both.
+for s in warn alarm; do
+  v=$(tmux -L ctxprobe show -gqv "@office_ctx_style_$s")
+  [[ $v == *'#[fg=#'* ]] && ok "the theme sets the $s tone" \
+    || bad "the theme sets the $s tone: got '$v'"
+done
+
+rm -rf $shim
+(( fail )) && { print -u2 "\nctx-probe FAILED"; exit 1 }
+print "\nctx-probe passed"
