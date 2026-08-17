@@ -294,7 +294,18 @@ _office_editor_loop() {
   print -P "\n  %F{yellow}the file list is closed.%f  Ctrl-Space e brings it back."
   exec zsh
 }
-_OFFICE_EDITOR_CMD='zsh -ic _office_editor_loop'
+# The pane sources the package itself, and does not hope the rc file did it.
+# `zsh -ic _office_editor_loop` alone is a pane that dies the instant it opens for
+# anybody whose ~/.zshrc does not happen to source office.zsh — a login shell that
+# is not zsh, a ZDOTDIR that moved, an rc file that only loads office for login
+# shells. And it dies SILENTLY: tmux closes a pane whose command exits, so the
+# office simply comes up with the file list missing and nothing says why. It
+# looked like the editor was never wired up.
+#
+# -i is still there, so your own rc runs and your own $EDITOR is found;
+# re-sourcing is idempotent, which office() already relies on. Quoted, because
+# the string is run by tmux's sh and the path can contain spaces.
+_OFFICE_EDITOR_CMD="zsh -ic 'source \"$_OFFICE_HOME/office.zsh\"; _office_editor_loop'"
 
 _office_pick_file() {                  # [dir]
   local target=${1:-} where

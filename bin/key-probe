@@ -24,6 +24,18 @@ SOCK = "office-key-probe"
 CONF = pathlib.Path(__file__).resolve().parent.parent / "office.tmux.conf"
 WINDOW = 12  # seconds the recorder pane listens for
 
+# The config is loaded when the SERVER STARTS, with -f, and not with a
+# `source-file` afterwards. Measured, because the difference is invisible in the
+# options: after a late source-file `show -s extended-keys` says `always` and
+# `terminal-features` carries `xterm*:extkeys`, exactly as it should, and
+# Shift-Enter still arrives at the pane as a bare \r. Loaded at start it works.
+#
+# What that cost before it was found: this probe silently borrowed the AUTHOR's
+# ~/.tmux.conf, which sources office.tmux.conf and therefore armed the server for
+# it. Anyone who cloned the repo and ran the probe before installing office got
+# "KEY HANDLING CHANGED" against untouched code, and so did CI.
+
+
 MOVES = "moves the pane"
 
 # raw bytes in at the client -> what the pane must receive, or MOVES.
@@ -72,9 +84,8 @@ def tmux(*a):
 def main():
     out = pathlib.Path(tempfile.mkdtemp()) / "got"
     tmux("kill-server")
-    tmux("new-session", "-d", "-x", "120", "-y", "24",
+    tmux("-f", str(CONF), "new-session", "-d", "-x", "120", "-y", "24",
          f"{sys.executable} {__file__} --record {out}")
-    tmux("source-file", str(CONF))
     tmux("split-window", "-h", "cat")   # somewhere for a movement key to go
     tmux("select-pane", "-t", "1")
 

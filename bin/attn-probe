@@ -63,6 +63,21 @@ desks()   { tmux list-panes -t "=$s" -F '#{@office_kind} #{pane_id}' | awk '$1==
 watch()   { "$here/office-attn" "$1" }          # exactly what the border runs
 gate()    { tmux display -p -t "$1" '#{E:@office_attn_gate}' }
 
+# What a desk is DOING is set by respawning it, never by typing at it. `send-keys`
+# raced the shell's own startup: on a cold runner the line and its Enter landed
+# while zsh was still reading its rc, went nowhere, and the pane sat at an empty
+# prompt — so a probe that meant to watch a busy desk watched an idle one and
+# reported "your turn" as a failure of the watcher. respawn-pane -k has no shell
+# to wait for, keeps the pane's @office_kind, and is the same on both platforms.
+#
+# All four are POSIX sh, run by the sh tmux hands them to, and none needs $TERM or
+# tput: `printf` there understands \033 itself.
+run() { tmux respawn-pane -k -t "$1" "$2" 2>/dev/null }
+STREAM='i=0; while :; do i=$((i+1)); echo "line $i"; sleep 0.2; done'
+THINK='i=0; while :; do i=$((i+1)); printf "\033[4;1Hthinking %s   " "$i"; sleep 0.1; done'
+ROTATE='i=0; while :; do i=$((i+1)); printf "\033[4;1Hhint %s        " "$i"; sleep 8; done'
+STILL='exec sleep 86400'
+
 ok()   { print "  ok   $1" }
 bad()  { print -u2 "  FAIL $1"; fail=1 }
 want() { [[ $2 == $3 ]] && ok "$1" || bad "$1: got '$2', wanted '$3'" }
@@ -93,7 +108,7 @@ want "gate: @office_home is what office.zsh wrote" "$home" "${here:h}"
 # snapshot to compare against, so it can only start the clock — that is the
 # contract, and a marker on the first look would be a marker on a pane that has
 # only just opened.
-tmux send-keys -t "$busy" 'while :; do print -- line $RANDOM; sleep 0.2; done' Enter
+run "$busy" "$STREAM"
 sleep 1
 want "working: the first look only starts the clock" "$(watch $busy)" ""
 for i in 1 2 3; do sleep 2; done
@@ -109,24 +124,18 @@ want "working: and nothing past the wait"            "$(watch $busy)" ""
 # tolerance, so that check alone calls it still and the border says "your turn"
 # for as long as the agent takes to think. Eighteen seconds of that, measured,
 # is what put the second look half a second later into office-attn.
-#
-# $RANDOM, not $EPOCHREALTIME: zsh/datetime is not loaded in a plain interactive
-# shell, and a line printing an empty variable never changes — which is the
-# probe passing itself while testing nothing.
-tmux send-keys -t "$busy" C-c
-sleep 0.5
-tmux send-keys -t "$busy" 'clear; while :; do tput cup 3 0; printf "thinking %s   " $RANDOM; sleep 0.1; done' Enter
+run "$busy" "$THINK"
 sleep 1
-watch "$busy" >/dev/null                # settle: the command line was a change
+watch "$busy" >/dev/null                # settle: respawning was itself a change
 for i in 1 2 3 4; do
   sleep 2
   want "thinking: one line at 10Hz is not waiting ($i)" "$(watch $busy)" ""
 done
 
 # --- a desk that has stopped --------------------------------------------------
-tmux send-keys -t "$busy" C-c
+run "$busy" "$STILL"
 sleep 1
-watch "$busy" >/dev/null                # the interrupt itself moved the screen
+watch "$busy" >/dev/null                # respawning it was itself a change
 want "stopped: nothing before the wait is up"        "$(watch $quiet; :)" ""
 # $quiet has printed nothing since it opened, so its clock started on the first
 # look above. Give it the wait and it has to speak.
@@ -159,9 +168,18 @@ got=$(border "$(pane_of SHELL)")
   || bad "the SHELL border does not: '$got'"
 
 # --- and it takes it back -----------------------------------------------------
-tmux send-keys -t "$quiet" 'print back to work' Enter
+# STREAM and then STILL, not one line printed once. A single line arriving is
+# INSIDE the between-looks tolerance, so the clock never restarted and the marker
+# stayed up — and that passed on the author's machine only because his prompt is
+# two lines tall and an empty HOME's is one. A fixture that depends on the shape
+# of somebody's prompt is not a fixture.
+run "$quiet" "$STREAM"
 sleep 1
+watch "$quiet" >/dev/null
 want "resumed: the marker is gone the moment it moves" "$(watch $quiet)" ""
+run "$quiet" "$STILL"
+sleep 1
+watch "$quiet" >/dev/null
 sleep $(( OFFICE_ATTN_SECS + 1 ))
 want "resumed: and comes back when it stops again"     "$(watch $quiet)" "  your turn"
 
@@ -171,16 +189,13 @@ want "resumed: and comes back when it stops again"     "$(watch $quiet)" "  your
 # printf and not print, and a fixed row: a NEWLINE at the bottom of an eleven-row
 # pane scrolls it, and a scrolled pane is every line changing at once, which is
 # the working state and not this one.
-tmux send-keys -t "$quiet" 'clear; print stopped' Enter
-sleep 1
-watch "$quiet" >/dev/null
 # Every 8s, which is what Claude Code does. The rate is the point: at 8s the
 # half-second look almost never lands on the change, and the between-looks
 # compare sees one line. Rotate it once a second instead and the probe measures
 # its own fake rather than the case it stands in for.
-tmux send-keys -t "$quiet" 'while :; do tput cup 3 0; printf "hint %s   " $RANDOM; sleep 8; done' Enter
+run "$quiet" "$ROTATE"
 sleep 1
-watch "$quiet" >/dev/null               # the command line itself was a change
+watch "$quiet" >/dev/null               # respawning it was itself a change
 # Polled, the way a border is: an unlucky look costs one tick and the next one
 # gets it. A single-shot check here would be a coin toss dressed up as a test.
 got=""
@@ -200,7 +215,7 @@ done
 # moment the screen has moved, so setting it while the pane is still settling
 # gets it overwritten by the very next look. Let the screen settle, take one look
 # to store it, THEN move the clock.
-tmux send-keys -t "$quiet" C-c
+run "$quiet" "$STILL"
 sleep 1
 watch "$quiet" >/dev/null
 now=$(tmux display -p '%s')
