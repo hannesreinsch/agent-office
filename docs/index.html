@@ -104,10 +104,12 @@
 
   /* --- the backdrop: night-sky marks, fixed, never over text --- */
   #backdrop { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; }
-  /* A phone has no margin for the field to drift in, so every mark lands on top of a headline
-     instead of beside it. The rule the zyx backdrop keeps is that it never competes with text, and
-     on a narrow screen the only way to keep it is not to draw it. */
-  @media (max-width: 900px) { #backdrop { display: none; } }
+  /* A phone has no margin for the field to drift in: the desktop placement puts a 116px mark
+     straight through a headline. The rule the zyx backdrop keeps is that it never COMPETES with
+     text, and the answer is a field built for the width rather than no field at all - the same
+     move the constellation makes with a per-mark phone slot. Below 900px the script swaps in
+     fewer, smaller marks pinned to the margins, and the depth grade drops a step so they read as
+     sky instead of as content. */
   #backdrop span { position: absolute; }
   #backdrop span > span { display: block; height: 100%; width: 100%; will-change: transform; transform-style: preserve-3d; }
 
@@ -158,13 +160,6 @@
     border: 1px solid var(--edge-strong); border-radius: 5px; padding: 2px 6px; color: var(--ink);
   }
 
-  /* --- the screenshot. It is the product: a tool whose whole pitch is what one window looks like
-         has to show the window. Same directory, so it costs no request the page was not already
-         making, and it is an SVG capture rather than a raster, so it stays sharp and diffs as
-         text. --- */
-  figure { margin: 40px 0 0; }
-  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--edge); border-radius: 10px; }
-  figcaption { color: var(--dim); font-size: 13.5px; margin-top: 14px; }
 
   /* --- the numbers that do the selling --- */
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 30px 34px; }
@@ -173,9 +168,6 @@
   .stat .l { color: var(--muted); font-size: 15px; margin-top: 10px; }
   .punch { font-size: 19px; color: var(--ink); margin: 34px 0 0; max-width: 50ch; letter-spacing: -0.015em; }
 
-  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 28px 34px; }
-  .fact strong { display: block; font-size: 16px; margin-bottom: 4px; }
-  .fact span { color: var(--muted); font-size: 15px; }
 
   .scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 440px; }
@@ -222,7 +214,7 @@
         <span>exwyezed</span>
       </a>
       <span class="crumb">/</span>
-      <span class="name">agent-office</span>
+      <span class="name">Agent Office</span>
     </div>
     <a class="right" href="https://github.com/hannesreinsch/agent-office">Source on GitHub</a>
   </nav>
@@ -248,33 +240,26 @@
         <div class="line"><code id="c3">git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office && ~/agent-office/install.sh</code></div>
         <button data-copy="c3">copy</button>
       </div>
-      <p class="after">Then <code>office on</code>, and that is the whole product. The installer
-      adds one line to your <code>.zshrc</code>, one to your <code>.tmux.conf</code>, and a symlink.
-      It writes no keyboard map, in any terminal: every office key is either
-      <kbd>Shift</kbd>+arrow or the <kbd>Ctrl</kbd>+<kbd>Space</kbd> prefix, which every terminal on
-      every OS already sends.</p>
-      <p class="after">Open source, MIT licensed, and all of it is on GitHub before you run any of
-      it: <a href="https://github.com/hannesreinsch/agent-office/blob/main/install.sh">the installer
-      is one shell script you can read first</a>, and so is
+      <p class="after">Then <code>office on</code>. The installer adds one line to your
+      <code>.zshrc</code>, one to your <code>.tmux.conf</code> and a symlink, and no keyboard map in
+      any terminal: every key is <kbd>Shift</kbd>+arrow or the <kbd>Ctrl</kbd>+<kbd>Space</kbd>
+      prefix, which every terminal already sends. Closing the window kills nothing.</p>
+      <p class="after">MIT licensed, and all of it is on GitHub before you run any of it:
+      <a href="https://github.com/hannesreinsch/agent-office/blob/main/install.sh">the installer is
+      one shell script you can read first</a>, and so is
       <a href="https://github.com/hannesreinsch/agent-office">everything it installs</a> — about two
-      thousand lines of zsh and a tmux config, with no daemon and no compiled anything.</p>
+      thousand lines of zsh and a tmux config, no daemon, nothing compiled.</p>
     </div>
 
-    <figure>
-      <a href="office.svg"><img src="office-detail.svg" width="987" height="691" alt="The left column of one agent-office window: three Claude Code sessions stacked vertically. The borders of the lower two read 'your turn'; the top one, still working, does not. Each border also shows how full that session's context window is."></a>
-      <figcaption>The left column of one office, captured from a real tmux client. Two desks have
-      stopped and their borders say so; the one still working does not, and each carries how full its
-      context window is. <a href="office.svg">The whole window, shell and file list included.</a></figcaption>
-    </figure>
   </header>
 
   <section>
     <h2>What was in the way</h2>
-    <p>Running three or four coding agents at once is normal now. The tooling for it was not. You
-    ended up with a heap of terminal windows, a layout you rebuilt by hand every morning, and
-    <strong>no idea which one was stuck</strong> — every window looked equally busy, so the only way
-    to find the one waiting on you was to read all four. Then you did it again five minutes later.</p>
-    <p>That last part is why this exists. The window is the easy half.</p>
+    <p>Running three or four coding agents at once is normal now. The tooling for it was not: a
+    heap of terminal windows, a layout you rebuilt every morning, and <strong>no idea which one was
+    stuck</strong>. Every window looked equally busy, so finding the one waiting on you meant reading
+    all four — then doing it again five minutes later. That last part is why this exists. The window
+    is the easy half.</p>
     <div class="stats">
       <div class="stat">
         <div class="n">4</div>
@@ -295,19 +280,6 @@
     rows, which is a slit and not a desk. Twenty seconds is the default and it is one variable.</p>
   </section>
 
-  <section>
-    <h2>What it is</h2>
-    <div class="facts">
-      <div class="fact"><strong>One window</strong><span>tmux, one command. Agents stacked down the left at equal height, a shell and a file list down the right.</span></div>
-      <div class="fact"><strong>One worktree each</strong><span>A new session opens in a fresh git worktree, so two agents never edit the same checkout or commit over each other.</span></div>
-      <div class="fact"><strong>Any agent CLI</strong><span>Claude Code out of the box. Codex, or the thing you are building, is one environment variable.</span></div>
-      <div class="fact"><strong>Nothing dies</strong><span>Closing the window kills nothing. <code>office on</code> puts you back exactly where you were, panes and layout and all.</span></div>
-    </div>
-    <p class="after">The office itself is cheap and the agents are not: measured with its own
-    <code>office doctor</code>, an agent pane costs about 500&nbsp;MB, while the office's own shell
-    pane costs 9&nbsp;MB and its file list 16&nbsp;MB. Four agents is a RAM decision, which is why
-    there is a command that shows you the bill.</p>
-  </section>
 
   <section>
     <h2>How it knows which one stopped</h2>
@@ -328,11 +300,9 @@
       </table>
     </div>
     <p class="note">One real Claude Code session, Apple M4 Pro, macOS 26.5, tmux 3.7b, sampled with
-    the same code the borders run. It takes two looks because either one alone is wrong: a hint line
-    under the agent's input box rotates every eight seconds, so "nothing moved" cannot mean idle,
-    and an agent that is only thinking moves exactly one line, so "one line moved" cannot mean idle
-    either. Before the half-second look existed, a border said "your turn" for the eighteen seconds
-    an agent spent thinking. Measure your own before believing any of these, including ours.</p>
+    the same code the borders run. Two looks, because either alone is wrong: a hint line under the
+    input box rotates every eight seconds, so "nothing moved" cannot mean idle, and a thinking agent
+    moves exactly one line, so "one line moved" cannot mean idle either. Measure your own.</p>
   </section>
 
   <section>
@@ -341,27 +311,18 @@
       <li><strong>No daemon.</strong> Nothing runs between sessions, and <code>office off</code> takes the tmux server and every process its panes started, detached ones included.</li>
       <li><strong>No config file.</strong> Every setting is an <code>OFFICE_*</code> environment variable, and the defaults are the product.</li>
       <li><strong>No plugin system</strong>, and no package manager. Two files and three small helpers is the whole surface.</li>
+      <li><strong>No hiding what it costs.</strong> Measured with its own <code>office doctor</code>: an agent pane is about 500&nbsp;MB, while the office's own shell pane is 9&nbsp;MB and its file list 16&nbsp;MB. Four agents is a RAM decision, so there is a command that shows you the bill.</li>
       <li><strong>No context number on a non-Claude desk.</strong> That readout comes from Claude Code's own session files, so a codex or aider desk simply has none rather than a guess.</li>
       <li><strong>No native Windows.</strong> tmux does not run there, so this lives in WSL2 and says so instead of half working.</li>
+      <li><strong>No telemetry, and one network call you can switch off.</strong> <code>office on</code> runs <code>git fetch</code> against this repo's remote to tell you when you are behind, and never pulls on its own. <code>OFFICE_UPDATE_CHECK=0</code> removes even that. Nothing else here opens a socket.</li>
     </ul>
-  </section>
-
-  <section>
-    <h2>What it touches</h2>
-    <p><strong>One network call, and you can turn it off.</strong> <code>office on</code> runs
-    <code>git fetch</code> in the background against this repo's own remote, so it can tell you when
-    you are behind, and it never pulls on its own. That is the only socket anything here opens:
-    nothing is uploaded, nothing is phoned home, no telemetry, no analytics.
-    <code>OFFICE_UPDATE_CHECK=0</code> removes even that one.</p>
-    <p>The context readout reads two files on your own disk that Claude Code already wrote, and
-    sends them nowhere. Panes you can see are never closed for you: a script that kills an agent you
-    were coming back to is worse than a full disk.</p>
-    <p class="after">Five probes drive a real tmux server to check all of this &mdash; they attach
-    real clients on a pty and type raw bytes at them &mdash; and CI runs every one of them on macOS
-    and Ubuntu, tmux 3.7b and 3.4, on every push.
+    <p class="after">Five probes drive a real tmux server to check all of this, attaching real
+    clients on a pty and typing raw bytes at them, and CI runs every one of them on macOS and
+    Ubuntu — tmux 3.7b and 3.4 — on every push.
     <a href="https://github.com/hannesreinsch/agent-office#readme">The source is public, and so is
     every claim on this page.</a></p>
   </section>
+
 
 </div>
 
@@ -423,12 +384,23 @@
   // field variant. Positions, sizes and the depth grade are the ratified ones. The cursor never
   // changes the motion; hovering a glyph makes its strokes vanish from the tips into the joint.
   (function () {
-    var FIELD = [
+    // The ratified desktop field, and the narrow one beside it. Same glyph, same motion, same
+    // depth vocabulary; only the placement and the grade differ, because a 375px column has no
+    // beside for a mark to sit in.
+    var WIDE = [
       ["5%", "14%", 84, "ghost-near"], ["22%", "70%", 116, "ghost-near"], ["44%", "7%", 32, "ghost-far"],
       ["68%", "18%", 68, "ghost"],     ["88%", "52%", 26, "ghost-far"],  ["74%", "84%", 96, "ghost-near"],
       ["9%", "46%", 44, "ghost-far"],  ["54%", "58%", 56, "ghost"],      ["34%", "32%", 30, "ghost-far"]
     ];
+    var NARROW = [
+      ["-4%", "11%", 46, "ghost-far"], ["84%", "26%", 34, "ghost-far"], ["-6%", "58%", 62, "ghost-far"],
+      ["80%", "72%", 40, "ghost"],     ["6%", "88%", 28, "ghost-far"]
+    ];
+    var FIELD = matchMedia("(max-width: 900px)").matches ? NARROW : WIDE;
     var BASE = [0.058, 0.086, 0.046, 0.069, 0.035, 0.052];
+    // Half the drift on a narrow screen: the desktop amplitude is 38px of travel, which is a
+    // margin mark stepping into the text column and back out of it.
+    var AMP = matchMedia("(max-width: 900px)").matches ? 0.45 : 1;
     var RAD = Math.PI / 180;
     var wrap = document.getElementById("backdrop");
     var marks = FIELD.map(function (f, i) {
@@ -465,8 +437,8 @@
       marks.forEach(function (m) {
         var r = m.rect || (m.rect = m.el.getBoundingClientRect());
         var p = m.p, f = m.f;
-        var x = Math.sin(s * f[0] + p[0]) * 26 + Math.sin(s * f[1] + p[1]) * 12;
-        var y = Math.cos(s * f[2] + p[2]) * 22 + Math.sin(s * f[3] + p[3]) * 10;
+        var x = (Math.sin(s * f[0] + p[0]) * 26 + Math.sin(s * f[1] + p[1]) * 12) * AMP;
+        var y = (Math.cos(s * f[2] + p[2]) * 22 + Math.sin(s * f[3] + p[3]) * 10) * AMP;
         m.inner.style.transform =
           "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) " +
           "rotateX(" + (Math.sin(s * f[4] + p[4]) * 20).toFixed(2) + "deg) " +
