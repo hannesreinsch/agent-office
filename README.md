@@ -1,11 +1,23 @@
-# agent-office
+# Agent Office
+
+### Four agents. One window.
+
+Each one in its own git worktree. The one that has stopped and is waiting on you
+says so, on its own border, without being asked.
 
 [![CI](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-c9903f)](LICENSE)
+![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-6a6c77)
+![No daemon](https://img.shields.io/badge/daemons-0-6a6c77)
 
 **Build agents with agents, and talk to what you built, in one window.**
 Several coding-agent sessions side by side, each in its own git worktree, plus a
 shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
+
+[**The product page**](https://hannesreinsch.github.io/agent-office/) ·
+[Our other tools](https://hannesreinsch.github.io/) ·
+[What we do for companies](https://runzyx.xyz)
 
 ```sh
 office on
@@ -46,8 +58,19 @@ were, panes, layout and all.
 ## Why
 
 Running three or four coding agents at once is normal now. The tooling for it
-is not. You end up with a pile of terminal tabs, no idea which one is waiting
-on you, and a window layout you rebuild by hand every morning.
+was not: a heap of terminal windows, a layout you rebuilt every morning, and no
+idea which one was stuck. Every window looked equally busy, so finding the one
+waiting on you meant reading all four, then doing it again five minutes later.
+That last part is why this exists. The window is the easy half.
+
+| 4 | 20s | 0 |
+|---|---|---|
+| agents in one window, each in its own git worktree | before a desk that has stopped says so on its border | daemons, config files and dashboards to stand up |
+
+Four is the cap because a fifth session in a fifty-row window gets about nine
+rows, which is a slit and not a desk. Twenty seconds is the default and it is
+one variable. Four agents you can keep track of is a different tool from four
+agents in four windows.
 
 That is the first half of what this fixes. The second half is what you do with
 those agents. People building an agent of their own hit the same wall every
@@ -725,9 +748,12 @@ obviously-correct gets merged quickly. Anything that changes the layout model or
 adds a command is worth an issue first, so you do not build something that turns
 out to be out of scope.
 
-There is no test suite, because almost everything here is a side effect on a
-live tmux server. Instead, say how you verified it: build a throwaway office,
-look at it, tear it down. [CONTRIBUTING.md](CONTRIBUTING.md) has the exact
+There are no unit tests, because almost everything here is a side effect on a
+live tmux server. What there is instead is five probes in `bin/` that drive a
+real one, attach real clients on a pty and type raw bytes at them; CI runs every
+one of them on macOS and Ubuntu, on tmux 3.7b and 3.4, on every push. For
+anything a probe does not cover, say how you verified it: build a throwaway
+office, look at it, tear it down. [CONTRIBUTING.md](CONTRIBUTING.md) has the exact
 snippet, along with the constraints that are not obvious from reading the code.
 
 **Especially welcome:**
@@ -750,6 +776,29 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-Built by [Hannes Reinsch](https://github.com/hannesreinsch) while building
-[Zyx](https://runzyx.xyz), an AI company runtime that lives inside the tools
-you already use. If `agent-office` is useful to you, that probably is too.
+## Where this comes from
+
+Agent Office is one of the tools **[exwyezed](https://runzyx.xyz)**, a product studio
+and forward deployed engineering practice, built for itself and gave away. It is
+the room [Zyx](https://runzyx.xyz#zyx) gets built in, and Zyx is the runtime the
+studio runs on. If this is useful to you, that probably is too.
+
+The other one is **[MurmurFlow](https://hannesreinsch.github.io/murmurflow/)**:
+hold a key, say it, let go, and the words land at your cursor in any app,
+transcribed on your own machine.
+
+**Product:** [page](https://hannesreinsch.github.io/agent-office/) ·
+[all our tools](https://hannesreinsch.github.io/) ·
+[getting started](GETTING-STARTED.md) ·
+[issues](https://github.com/hannesreinsch/agent-office/issues)
+
+**Studio:** [what we do for companies](https://runzyx.xyz) ·
+[Zyx](https://runzyx.xyz#zyx) ·
+[GitHub](https://github.com/hannesreinsch)
+
+**Legal:** [MIT licence](LICENSE) ·
+[privacy](https://runzyx.xyz/legal#privacy) ·
+[imprint](https://runzyx.xyz/legal#imprint)
+
+*Agent Office is not affiliated with, endorsed by, or connected to tmux,
+Anthropic, or any agent vendor.*
