@@ -214,7 +214,7 @@
         <span>exwyezed</span>
       </a>
       <span class="crumb">/</span>
-      <span class="name">Agent Office</span>
+      <span class="name">agent office</span>
     </div>
     <a class="right" href="https://github.com/hannesreinsch/agent-office">Source on GitHub</a>
   </nav>
@@ -392,9 +392,13 @@
       ["68%", "18%", 68, "ghost"],     ["88%", "52%", 26, "ghost-far"],  ["74%", "84%", 96, "ghost-near"],
       ["9%", "46%", 44, "ghost-far"],  ["54%", "58%", 56, "ghost"],      ["34%", "32%", 30, "ghost-far"]
     ];
+    // Every narrow mark hangs off an edge, and every one is graded to the far step. Measured on a
+    // 375px viewport: at left 6% or right 80% a mark sits INSIDE the 24px text gutter and reads as
+    // a smudge behind a letter, which is the one thing this field may not do. With AMP at 0.45 the
+    // horizontal wander is +-17px, so the anchors are biased past the edge to absorb it.
     var NARROW = [
-      ["-4%", "11%", 46, "ghost-far"], ["84%", "26%", 34, "ghost-far"], ["-6%", "58%", 62, "ghost-far"],
-      ["80%", "72%", 40, "ghost"],     ["6%", "88%", 28, "ghost-far"]
+      ["-5%", "11%", 46, "ghost-far"], ["88%", "27%", 34, "ghost-far"], ["-7%", "57%", 62, "ghost-far"],
+      ["90%", "73%", 40, "ghost-far"], ["-4%", "88%", 28, "ghost-far"]
     ];
     var FIELD = matchMedia("(max-width: 900px)").matches ? NARROW : WIDE;
     var BASE = [0.058, 0.086, 0.046, 0.069, 0.035, 0.052];
