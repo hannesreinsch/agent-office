@@ -7,7 +7,7 @@ says so, on its own border, without being asked.
 
 [![CI](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-c9903f)](LICENSE)
-![Platform: macOS and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-6a6c77)
+![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-6a6c77)
 ![No daemon](https://img.shields.io/badge/daemons-0-6a6c77)
 
 **Build agents with agents, and talk to what you built, in one window.**
