@@ -11,12 +11,6 @@ agent. Claude Code out of the box, Codex or any other CLI with one variable.
 office on
 ```
 
-![Three Claude Code sessions in one agent-office window. Two desks have finished and their borders say "your turn"; the one still working does not. Every desk carries how full its context window is.](docs/office.svg)
-
-<sup>A real office, captured from a real tmux client: three Claude Code sessions,
-the shell running `office doctor`, and the file list. Desks 2 and 3 have stopped
-and say so. Desk 1 is still working, so it does not.</sup>
-
 ```
 ┌─────────────────────────────┬──────────────┐
 │ 1 CLAUDE                    │ 4 AGENT CHAT │  ^Space c
@@ -91,7 +85,7 @@ symlink. That is the whole install: **no keyboard map, in any terminal.** Every 
 either `Shift+arrow` or the `Ctrl-Space` prefix, and every terminal on every OS
 already sends both.
 
-It changes no colours. If you want the look in the screenshot above as well, that is
+It changes no colours. If you want the look as well, that is
 `./install.sh --theme`, which writes an iTerm2 profile — see
 [the theme](#the-theme-if-you-want-it) below.
 

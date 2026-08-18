@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Office: four coding agents, one window</title>
+<meta name="description" content="A tmux cockpit for running several coding agents at once. Each session gets its own git worktree, and the border of the one that has stopped tells you so. One command, no daemon, no config file.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' fill='none'><rect width='120' height='120' rx='18' fill='%230B0C10'/><g stroke='%23F6F5F1' stroke-width='11' stroke-linecap='round'><line x1='60' y1='60' x2='60' y2='30'/><line x1='60' y1='60' x2='30' y2='82'/><line x1='60' y1='60' x2='94' y2='74'/></g></svg>">
+<meta property="og:title" content="Agent Office: four coding agents, one window">
+<meta property="og:description" content="Four agents, one window, each in its own git worktree. The one that has stopped and needs you says so on its border.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<!--
+  ONE FILE plus three font files and one screenshot, no build step and no external request, which
+  is what lets GitHub Pages serve this straight out of /docs and keeps the same promise the product
+  makes: about two thousand lines of zsh and a tmux config, and nothing else at runtime.
+
+  The brand is exwyezed's: the woven three-stroke mark, Sora and Geist Mono self-hosted, the
+  monochrome ramp (near-black page, warm-white ink, one grey scale) and brass as the single signal
+  colour rather than an accent. The drifting backdrop marks are the field variant from the zyx
+  site, ported to plain JS: fixed, behind everything, never over text, and still when the viewer
+  has asked for reduced motion.
+-->
+<style>
+  /* Self-hosted, copied from the zyx build. No Google Fonts request, ever. */
+  @font-face {
+    font-family: Sora; font-style: normal; font-weight: 400; font-display: swap;
+    src: url("fonts/sora-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: Sora; font-style: normal; font-weight: 600; font-display: swap;
+    src: url("fonts/sora-600.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Geist Mono"; font-style: normal; font-weight: 400; font-display: swap;
+    src: url("fonts/geist-mono-400.woff2") format("woff2");
+  }
+
+  :root {
+    color-scheme: dark;
+    --surface: #0b0c10;
+    --panel: #16181f;
+    --ink: #f6f5f1;
+    --subtle: #c9cad0;
+    --muted: #9a9ca6;
+    --dim: #6a6c77;
+    --faint: #4e505a;
+    --ghost: #2a2d36;
+    --ghost-near: #343741;
+    --ghost-far: #1f2127;
+    --edge: rgba(255, 255, 255, 0.09);
+    --edge-strong: rgba(255, 255, 255, 0.16);
+    /* THE one signal colour. Brass is not an accent: it marks the press that matters, so on this
+       page it is the install button and the focus ring. Nothing else, and never the mark, which is
+       one ink on every product the studio ships. (The product itself spends brass the same way, on
+       one thing only: a desk that has stopped and is waiting on you.) */
+    --signal: #c9903f;
+    --signal-ink: #0b0c10;
+  }
+  /* DARK ONLY, and that is the ratified brand rather than an omission. The light ramp exists in
+     the zyx codebase and is PARKED there by decision ("doesn't look this cool, park it for later"),
+     with the toggle still in the tree and nothing activating it. A product page that flips itself
+     white because a visitor's OS is in light mode is a second brand, shown to exactly the people
+     we did not choose it for. `color-scheme: dark` above is what keeps the scrollbars and any form
+     control dark with it. */
+  *, *::before, *::after { box-sizing: border-box; }
+  /* The background lives on the ROOT, not on body: the backdrop is a z-index -1 child of body, and
+     an opaque body would paint straight over it. */
+  html { background: var(--surface); -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: Sora, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 68px 0; border-top: 1px solid var(--edge); }
+  .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+
+  h1 { font-size: clamp(40px, 8.4vw, 66px); line-height: 1.02; letter-spacing: -0.035em; margin: 0; font-weight: 600; }
+  h2 {
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--dim); font-weight: 400; margin: 0 0 28px;
+  }
+  h3 { font-size: 21px; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: var(--subtle); }
+  p.lead { font-size: 21px; color: var(--muted); margin-top: 22px; max-width: 44ch; }
+  a { color: var(--ink); text-decoration-color: var(--edge-strong); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--signal); }
+  a:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; border-radius: 3px; }
+  strong { color: var(--ink); font-weight: 600; }
+  code { font-family: "Geist Mono", ui-monospace, Menlo, monospace; font-size: 0.9em; }
+
+  /* --- the mark, and the tips-into-joint hover it shares with the zyx lockups --- */
+  .mk line { stroke: currentColor; stroke-width: 9; stroke-linecap: round; }
+  .mk-vanish line { stroke-dasharray: 44; stroke-dashoffset: 0; transition: stroke-dashoffset 0.55s cubic-bezier(0.22, 0.61, 0.36, 1); }
+  @media (hover: hover) {
+    [data-mk-hover="1"] .mk-vanish line, a:hover > .mk-vanish line { stroke-dashoffset: 46; }
+  }
+
+  /* --- the backdrop: night-sky marks, fixed, never over text --- */
+  #backdrop { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; }
+  /* A phone has no margin for the field to drift in: the desktop placement puts a 116px mark
+     straight through a headline. The rule the zyx backdrop keeps is that it never COMPETES with
+     text, and the answer is a field built for the width rather than no field at all - the same
+     move the constellation makes with a per-mark phone slot. Below 900px the script swaps in
+     fewer, smaller marks pinned to the margins, and the depth grade drops a step so they read as
+     sky instead of as content. */
+  #backdrop span { position: absolute; }
+  #backdrop span > span { display: block; height: 100%; width: 100%; will-change: transform; transform-style: preserve-3d; }
+
+  /* --- nav --- */
+  nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 0 0; }
+  .lockup { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+  .lockup .name { font-weight: 600; letter-spacing: -0.04em; font-size: 17px; }
+  /* The parent half of the breadcrumb: muted, so the page you are ON is the one that reads first. */
+  .lockup .up { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); text-decoration: none; font-weight: 600; letter-spacing: -0.04em; font-size: 17px; }
+  .lockup .up:hover { color: var(--ink); }
+  .lockup .crumb { color: var(--faint); font-weight: 400; }
+  /* GitHub carries weight because the licence is the pitch: a bordered target rather than a word
+     in a corner. Not brass, though. Brass is the install, and a page with two primary buttons has
+     none. */
+  nav .right {
+    font-size: 13.5px; color: var(--subtle); text-decoration: none; white-space: nowrap;
+    border: 1px solid var(--edge-strong); border-radius: 7px; padding: 8px 13px;
+    transition: color 0.14s, border-color 0.14s;
+  }
+  nav .right:hover { color: var(--ink); border-color: var(--muted); }
+  /* On a phone the WAY BACK is what survives, not the page you are already on. This used to hide
+     `.up span` and the separator, which left a bare 22px glyph as the only route to the index: no
+     label, no arrow, and nothing saying it was a link at all. The page you are on is in the <h1>
+     and in the tab title, so it is the half that can go. An arrow, because a lockup on its own
+     reads as a title rather than as a door, and a 44px tap target because a 27px line box is not
+     one. */
+  @media (max-width: 560px) {
+    .lockup .name, .lockup .crumb { display: none; }
+    .lockup .up { padding: 9px 4px; margin: -9px -4px; }
+    .lockup .up::before { content: "\2190"; color: var(--muted); font-weight: 400; }
+  }
+
+  header { padding: 76px 0 4px; }
+
+  /* --- the call to action --- */
+  .cta { margin-top: 34px; }
+  .cmd {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--edge);
+    border-radius: 10px; padding: 14px 14px 14px 16px; margin: 10px 0 6px;
+  }
+  /* The COMMAND scrolls, not the row: a copy button that scrolls out of sight with a long install
+     line is a copy button nobody finds on a phone. */
+  .cmd .line { flex: 1; min-width: 0; overflow-x: auto; }
+  .cmd code { line-height: 1.5; color: var(--ink); white-space: pre; font-size: 13.5px; }
+  .cmd button {
+    flex: none; font: inherit; font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-size: 12px; line-height: 1; padding: 9px 13px; border-radius: 6px; cursor: pointer;
+    color: var(--signal-ink); background: var(--signal); border: 1px solid var(--signal);
+    transition: opacity 0.14s;
+  }
+  .cmd button:hover { opacity: 0.86; }
+  .cmd button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .os { font-size: 12px; color: var(--dim); margin: 24px 0 0; }
+  .after { color: var(--muted); font-size: 15px; margin-top: 22px; }
+  kbd {
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace; font-size: 0.84em;
+    border: 1px solid var(--edge-strong); border-radius: 5px; padding: 2px 6px; color: var(--ink);
+  }
+
+
+  /* --- the numbers that do the selling --- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 30px 34px; }
+  .stat .n { font-size: clamp(34px, 6vw, 46px); font-weight: 600; letter-spacing: -0.04em; line-height: 1; color: var(--ink); }
+  .stat .n small { font-size: 0.42em; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 4px; }
+  .stat .l { color: var(--muted); font-size: 15px; margin-top: 10px; }
+  .punch { font-size: 19px; color: var(--ink); margin: 34px 0 0; max-width: 50ch; letter-spacing: -0.015em; }
+
+
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 440px; }
+  th, td { text-align: left; padding: 11px 0; border-bottom: 1px solid var(--edge); color: var(--subtle); }
+  th { color: var(--dim); font-weight: 400; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-family: "Geist Mono", ui-monospace, Menlo, monospace; }
+  td:last-child, th:last-child { text-align: right; font-family: "Geist Mono", ui-monospace, Menlo, monospace; }
+  td:last-child { color: var(--ink); }
+  .note { font-size: 14px; color: var(--dim); margin-top: 18px; }
+
+  ul { margin: 0; padding: 0; list-style: none; }
+  li { padding: 13px 0; border-bottom: 1px solid var(--edge); color: var(--subtle); font-size: 16px; }
+  li:last-child { border-bottom: 0; }
+
+  /* --- footer. Opaque on purpose: it is the one full-width block a drifting mark would
+         otherwise pass straight through. --- */
+  footer { background: var(--surface); border-top: 1px solid var(--edge); margin-top: 8px; }
+  footer .shell { padding-top: 56px; padding-bottom: 72px; }
+  .foot-top { display: grid; grid-template-columns: minmax(260px, 2.1fr) repeat(3, minmax(104px, 1fr)); gap: 36px 30px; }
+  @media (max-width: 640px) { .foot-top { grid-template-columns: 1fr 1fr; } .foot-top > div:first-child { grid-column: 1 / -1; } }
+  .tagline { color: var(--muted); font-size: 14.5px; margin: 16px 0 0; max-width: 42ch; }
+  .col h4 { font-family: "Geist Mono", ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.11em; color: var(--dim); font-weight: 400; text-transform: uppercase; margin: 0 0 12px; }
+  .col a { display: block; color: var(--muted); text-decoration: none; font-size: 14.5px; padding: 4px 0; }
+  .col a:hover { color: var(--ink); }
+  .copyright {
+    margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--edge);
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.08em; color: var(--faint); text-transform: uppercase;
+  }
+  .disclaimer { font-size: 12px; color: var(--faint); margin-top: 14px; letter-spacing: 0; text-transform: none; font-family: Sora, sans-serif; }
+</style>
+</head>
+<body>
+
+<div id="backdrop" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <nav>
+    <div class="lockup">
+      <a class="up" href="https://hannesreinsch.github.io/">
+        <svg class="mk mk-vanish" viewBox="0 0 120 120" width="22" height="22" fill="none" aria-hidden="true">
+          <line x1="60" y1="60" x2="60" y2="30"/><line x1="60" y1="60" x2="30" y2="82"/><line x1="60" y1="60" x2="94" y2="74"/>
+        </svg>
+        <span>exwyezed</span>
+      </a>
+      <span class="crumb">/</span>
+      <span class="name">agent office</span>
+    </div>
+    <a class="right" href="https://github.com/hannesreinsch/agent-office">Source on GitHub</a>
+  </nav>
+
+  <header id="top">
+    <h1>Four agents.<br>One window.</h1>
+    <p class="lead">Each one in its own git worktree. The one that has stopped and is waiting on you
+    says so, on its own border, without being asked.</p>
+
+    <div class="cta">
+      <p class="os mono">macOS, paste into Terminal</p>
+      <div class="cmd">
+        <div class="line"><code id="c1">brew install tmux fzf fd micro bat</code></div>
+        <button data-copy="c1">copy</button>
+      </div>
+      <p class="os mono">Windows, inside WSL2</p>
+      <div class="cmd">
+        <div class="line"><code id="c2">sudo apt install -y tmux zsh git fzf fd-find micro bat && mkdir -p ~/.local/bin && ln -sf "$(which fdfind)" ~/.local/bin/fd</code></div>
+        <button data-copy="c2">copy</button>
+      </div>
+      <p class="os mono">then, on either</p>
+      <div class="cmd">
+        <div class="line"><code id="c3">git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office && ~/agent-office/install.sh</code></div>
+        <button data-copy="c3">copy</button>
+      </div>
+      <p class="after">Then <code>office on</code>. The installer adds one line to your
+      <code>.zshrc</code>, one to your <code>.tmux.conf</code> and a symlink, and no keyboard map in
+      any terminal: every key is <kbd>Shift</kbd>+arrow or the <kbd>Ctrl</kbd>+<kbd>Space</kbd>
+      prefix, which every terminal already sends. Closing the window kills nothing.</p>
+      <p class="after">MIT licensed, and all of it is on GitHub before you run any of it:
+      <a href="https://github.com/hannesreinsch/agent-office/blob/main/install.sh">the installer is
+      one shell script you can read first</a>, and so is
+      <a href="https://github.com/hannesreinsch/agent-office">everything it installs</a> — about two
+      thousand lines of zsh and a tmux config, no daemon, nothing compiled.</p>
+    </div>
+
+  </header>
+
+  <section>
+    <h2>What was in the way</h2>
+    <p>Running three or four coding agents at once is normal now. The tooling for it was not: a
+    heap of terminal windows, a layout you rebuilt every morning, and <strong>no idea which one was
+    stuck</strong>. Every window looked equally busy, so finding the one waiting on you meant reading
+    all four — then doing it again five minutes later. That last part is why this exists. The window
+    is the easy half.</p>
+    <div class="stats">
+      <div class="stat">
+        <div class="n">4</div>
+        <div class="l">agents in one window, each in its own git worktree</div>
+      </div>
+      <div class="stat">
+        <div class="n">20<small>s</small></div>
+        <div class="l">before a desk that has stopped says so on its border</div>
+      </div>
+      <div class="stat">
+        <div class="n">0</div>
+        <div class="l">daemons, config files, and dashboards to stand up</div>
+      </div>
+    </div>
+    <p class="punch">Four agents you can keep track of is a different tool from four agents in four
+    windows.</p>
+    <p class="note">Four is the cap because a fifth session in a fifty-row window gets about nine
+    rows, which is a slit and not a desk. Twenty seconds is the default and it is one variable.</p>
+  </section>
+
+
+  <section>
+    <h2>How it knows which one stopped</h2>
+    <p>It watches the pane, not the agent. There is no marker to grep for and no hook to install,
+    because the left column is pointed at whatever CLI you use — so the only thing it can rely on is
+    that <strong>an agent that is working redraws</strong>: a spinner, an elapsed timer, output
+    arriving. One that has stopped does not.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>what the pane was doing</th><th>lines that changed</th></tr></thead>
+        <tbody>
+          <tr><td>streaming an answer, looks 5 s apart</td><td>7 &ndash; 34</td></tr>
+          <tr><td>thinking, spinner only, looks 5 s apart</td><td>1</td></tr>
+          <tr><td>idle at the prompt, looks 5 s apart</td><td>0 &ndash; 1</td></tr>
+          <tr><td>thinking, looks half a second apart</td><td>1, in 19 of 20</td></tr>
+          <tr><td>idle, looks half a second apart</td><td>0, in 19 of 20</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">One real Claude Code session, Apple M4 Pro, macOS 26.5, tmux 3.7b, sampled with
+    the same code the borders run. Two looks, because either alone is wrong: a hint line under the
+    input box rotates every eight seconds, so "nothing moved" cannot mean idle, and a thinking agent
+    moves exactly one line, so "one line moved" cannot mean idle either. Measure your own.</p>
+  </section>
+
+  <section>
+    <h2>What it does not do</h2>
+    <ul>
+      <li><strong>No daemon.</strong> Nothing runs between sessions, and <code>office off</code> takes the tmux server and every process its panes started, detached ones included.</li>
+      <li><strong>No config file.</strong> Every setting is an <code>OFFICE_*</code> environment variable, and the defaults are the product.</li>
+      <li><strong>No plugin system</strong>, and no package manager. Two files and three small helpers is the whole surface.</li>
+      <li><strong>No hiding what it costs.</strong> Measured with its own <code>office doctor</code>: an agent pane is about 500&nbsp;MB, while the office's own shell pane is 9&nbsp;MB and its file list 16&nbsp;MB. Four agents is a RAM decision, so there is a command that shows you the bill.</li>
+      <li><strong>No context number on a non-Claude desk.</strong> That readout comes from Claude Code's own session files, so a codex or aider desk simply has none rather than a guess.</li>
+      <li><strong>No native Windows.</strong> tmux does not run there, so this lives in WSL2 and says so instead of half working.</li>
+      <li><strong>No telemetry, and one network call you can switch off.</strong> <code>office on</code> runs <code>git fetch</code> against this repo's remote to tell you when you are behind, and never pulls on its own. <code>OFFICE_UPDATE_CHECK=0</code> removes even that. Nothing else here opens a socket.</li>
+    </ul>
+    <p class="after">Five probes drive a real tmux server to check all of this, attaching real
+    clients on a pty and typing raw bytes at them, and CI runs every one of them on macOS and
+    Ubuntu — tmux 3.7b and 3.4 — on every push.
+    <a href="https://github.com/hannesreinsch/agent-office#readme">The source is public, and so is
+    every claim on this page.</a></p>
+  </section>
+
+
+</div>
+
+<footer>
+  <div class="shell">
+    <div class="foot-top">
+      <div>
+        <a class="lockup" href="https://hannesreinsch.github.io/">
+          <svg class="mk mk-vanish" viewBox="0 0 120 120" width="22" height="22" fill="none" aria-hidden="true">
+            <line x1="60" y1="60" x2="60" y2="30"/><line x1="60" y1="60" x2="30" y2="82"/><line x1="60" y1="60" x2="94" y2="74"/>
+          </svg>
+          <span class="name">exwyezed</span>
+        </a>
+        <p class="tagline">A product studio and forward deployed engineering practice.
+        Agent Office is one of the things we built for ourselves and gave away.</p>
+      </div>
+      <div class="col">
+        <h4>Product</h4>
+        <a href="https://github.com/hannesreinsch/agent-office">Source</a>
+        <a href="https://github.com/hannesreinsch/agent-office#readme">Docs</a>
+        <a href="https://github.com/hannesreinsch/agent-office/issues">Issues</a>
+      </div>
+      <div class="col">
+        <h4>Studio</h4>
+        <a href="https://hannesreinsch.github.io/">Our other tools</a>
+        <a href="https://runzyx.xyz">What we do for companies</a>
+        <a href="https://runzyx.xyz#zyx">Zyx</a>
+      </div>
+      <div class="col">
+        <h4>Legal</h4>
+        <a href="https://github.com/hannesreinsch/agent-office/blob/main/LICENSE">MIT licence</a>
+        <a href="https://runzyx.xyz/legal#privacy">Privacy</a>
+        <a href="https://runzyx.xyz/legal#imprint">Imprint</a>
+      </div>
+    </div>
+    <div class="copyright">
+      &copy; <span id="year">2026</span> EXWYEZED &middot; ZYX &middot; FORWARD DEPLOYED AI FOR YOUR COMPANY
+      <div class="disclaimer">Agent Office is not affiliated with, endorsed by, or connected to
+      tmux, Anthropic, or any agent vendor.</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById("year").textContent = new Date().getFullYear();
+
+  // Copy button.
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var text = document.getElementById(button.dataset.copy).textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        button.textContent = "copied";
+        setTimeout(function () { button.textContent = "copy"; }, 1600);
+      });
+    });
+  });
+
+  // The backdrop: nine hand-placed marks on a slow night-sky wander, ported from the zyx site's
+  // field variant. Positions, sizes and the depth grade are the ratified ones. The cursor never
+  // changes the motion; hovering a glyph makes its strokes vanish from the tips into the joint.
+  (function () {
+    // The ratified desktop field, and the narrow one beside it. Same glyph, same motion, same
+    // depth vocabulary; only the placement and the grade differ, because a 375px column has no
+    // beside for a mark to sit in.
+    var WIDE = [
+      ["5%", "14%", 84, "ghost-near"], ["22%", "70%", 116, "ghost-near"], ["44%", "7%", 32, "ghost-far"],
+      ["68%", "18%", 68, "ghost"],     ["88%", "52%", 26, "ghost-far"],  ["74%", "84%", 96, "ghost-near"],
+      ["9%", "46%", 44, "ghost-far"],  ["54%", "58%", 56, "ghost"],      ["34%", "32%", 30, "ghost-far"]
+    ];
+    // Every narrow mark hangs off an edge, and every one is graded to the far step. Measured on a
+    // 375px viewport: at left 6% or right 80% a mark sits INSIDE the 24px text gutter and reads as
+    // a smudge behind a letter, which is the one thing this field may not do. With AMP at 0.45 the
+    // horizontal wander is +-17px, so the anchors are biased past the edge to absorb it.
+    var NARROW = [
+      ["-5%", "11%", 46, "ghost-far"], ["88%", "27%", 34, "ghost-far"], ["-7%", "57%", 62, "ghost-far"],
+      ["90%", "73%", 40, "ghost-far"], ["-4%", "88%", 28, "ghost-far"]
+    ];
+    var FIELD = matchMedia("(max-width: 900px)").matches ? NARROW : WIDE;
+    var BASE = [0.058, 0.086, 0.046, 0.069, 0.035, 0.052];
+    // Half the drift on a narrow screen: the desktop amplitude is 38px of travel, which is a
+    // margin mark stepping into the text column and back out of it.
+    var AMP = matchMedia("(max-width: 900px)").matches ? 0.45 : 1;
+    var RAD = Math.PI / 180;
+    var wrap = document.getElementById("backdrop");
+    var marks = FIELD.map(function (f, i) {
+      var tile = document.createElement("span");
+      tile.style.cssText = "left:" + f[0] + ";top:" + f[1] + ";width:" + f[2] + "px;height:" + f[2] + "px;perspective:450px;color:var(--" + f[3] + ")";
+      var inner = document.createElement("span");
+      inner.innerHTML = '<svg class="mk mk-vanish" viewBox="0 0 120 120" width="100%" height="100%" fill="none">' +
+        '<line x1="60" y1="62" x2="60" y2="30"/><line x1="60" y1="62" x2="32" y2="82"/><line x1="60" y1="62" x2="88" y2="82"/></svg>';
+      tile.appendChild(inner);
+      wrap.appendChild(tile);
+      return {
+        el: tile, inner: inner, rect: null, hv: false,
+        ax: (i * 47 + 20) % 360, ay: (i * 83 + 35) % 360, az: (i * 29) % 360,
+        p: BASE.map(function () { return Math.random() * Math.PI * 2; }),
+        f: BASE.map(function (f) { return f * (0.8 + Math.random() * 0.5); })
+      };
+    });
+
+    // The varied resting pose is what every mark starts at, and all that reduced motion ever gets.
+    marks.forEach(function (m) {
+      m.inner.style.transform =
+        "rotateX(" + (Math.sin(m.ax * RAD) * 32).toFixed(2) + "deg) " +
+        "rotateY(" + (Math.sin(m.ay * RAD) * 32).toFixed(2) + "deg) " +
+        "rotateZ(" + (Math.sin(m.az * RAD) * 16).toFixed(2) + "deg)";
+    });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    var mx = -9999, my = -9999;
+    addEventListener("pointermove", function (e) { mx = e.clientX; my = e.clientY; }, { passive: true });
+    addEventListener("resize", function () { marks.forEach(function (m) { m.rect = null; }); });
+
+    (function step() {
+      var s = performance.now() / 1000;
+      marks.forEach(function (m) {
+        var r = m.rect || (m.rect = m.el.getBoundingClientRect());
+        var p = m.p, f = m.f;
+        var x = (Math.sin(s * f[0] + p[0]) * 26 + Math.sin(s * f[1] + p[1]) * 12) * AMP;
+        var y = (Math.cos(s * f[2] + p[2]) * 22 + Math.sin(s * f[3] + p[3]) * 10) * AMP;
+        m.inner.style.transform =
+          "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) " +
+          "rotateX(" + (Math.sin(s * f[4] + p[4]) * 20).toFixed(2) + "deg) " +
+          "rotateY(" + (Math.sin(s * f[5] + p[5]) * 20).toFixed(2) + "deg)";
+        var over = mx >= r.left - 4 && mx <= r.right + 4 && my >= r.top - 4 && my <= r.bottom + 4;
+        if (m.hv !== over) {
+          m.hv = over;
+          if (over) m.inner.dataset.mkHover = "1"; else delete m.inner.dataset.mkHover;
+        }
+      });
+      requestAnimationFrame(step);
+    })();
+  })();
+</script>
+
+</body>
+</html>
