@@ -520,8 +520,10 @@ _office_even_desks() { _office_even_column "$1" left }
 #   dim    a pane that is already open, and the actions, which have no
 #          open-or-closed state to report at all.
 #
-# The prefix is lit, not dim: it is the key every other key on this bar needs
-# first, so it is never "nothing to do here".
+# The prefix reads like every other key: dim while it is not doing anything, lit
+# only while it is HELD - a pressed prefix is exactly the "there is something to
+# do here" the ladder means. tmux answers client_prefix itself on every redraw,
+# same reason zoom is a format and not a pushed tone.
 _OFFICE_BAR_OPEN='#[fg=#4e505a]'
 _OFFICE_BAR_SHUT='#[fg=#9a9ca6]'
 _OFFICE_BAR_BACK='#[fg=#f6f5f1]'
@@ -529,7 +531,7 @@ _OFFICE_BAR_SEP='#[fg=#3a3c44]'
 _office_bar() {                        # <session>
   local open out sep="" pair kind name key tone
   open=" $(tmux list-panes -t "=$1" -F '#{@office_kind}' 2>/dev/null | tr '\n' ' ')"
-  out="${_OFFICE_BAR_SHUT}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
+  out="#{?client_prefix,${_OFFICE_BAR_SHUT},${_OFFICE_BAR_OPEN}}^Space#[default] ${_OFFICE_BAR_SEP}│#[default] ${_OFFICE_BAR_OPEN}n new${_OFFICE_BAR_SEP} · #[default]"
   for pair in "CLAUDE:sessions:a" "CHAT:chat:c" "SHELL:shell:s" "EDITOR:editor:e"; do
     kind=${pair%%:*}; name=${${pair#*:}%%:*}; key=${pair##*:}
     [[ $open == *" $kind "* ]] && tone=$_OFFICE_BAR_OPEN || tone=$_OFFICE_BAR_SHUT
@@ -553,7 +555,7 @@ _office_bar() {                        # <session>
   # a new pair of eyes needs and the only key here nothing on screen hints at:
   # a pane border shows which pane you are in, never how to reach the next one.
   # Dim, like the other actions, because moving has no open-or-closed state.
-  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_OPEN}⇧←↑↓→ move#[default]"
+  out+="${_OFFICE_BAR_SEP} │ #[default]${_OFFICE_BAR_OPEN}⇧ ← ↑ ↓ →  move#[default]"
   # NB: no "=" prefix here. set-option takes a plain session name and rejects
   # the exact-match form that every other tmux command accepts.
   tmux set -t "$1" @office_bar "$out" 2>/dev/null
