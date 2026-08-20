@@ -91,6 +91,25 @@ jobs:
           test "$(grep -c 'source-file' "$HOME/.tmux.conf")" = 1
           test -L "$HOME/.local/bin/office"
 
+      # ...and after the checkout MOVES, which is the case the installer used to be blind to: it
+      # grepped for the CURRENT path, missed, and appended a second line below the dead one. The
+      # machine that prompted this had been through two folder renames and was still sourcing
+      # office.tmux.conf from a path retired months earlier -- so tmux used its own defaults, and
+      # nothing said why. One line, pointing where the checkout actually is.
+      - name: install.sh after the checkout moves
+        run: |
+          export HOME="$RUNNER_TEMP/moved"
+          mkdir -p "$HOME" "$RUNNER_TEMP/before"
+          cp -R . "$RUNNER_TEMP/before/agent-office"
+          (cd "$RUNNER_TEMP/before/agent-office" && ./install.sh)
+          mv "$RUNNER_TEMP/before/agent-office" "$RUNNER_TEMP/after"
+          (cd "$RUNNER_TEMP/after" && ./install.sh)
+          test "$(grep -c 'source-file' "$HOME/.tmux.conf")" = 1
+          test "$(grep -c 'office.zsh' "$HOME/.zshrc")" = 1
+          grep -q "$RUNNER_TEMP/after/office.tmux.conf" "$HOME/.tmux.conf"
+          grep -q "$RUNNER_TEMP/after/office.zsh" "$HOME/.zshrc"
+          test "$(readlink "$HOME/.local/bin/office")" = "$RUNNER_TEMP/after/bin/office"
+
       # First, and needs no tmux server: it decides WHICH repo an office opens on, so a
       # break here makes every probe below open the right office on the wrong directory.
       - name: root-probe
