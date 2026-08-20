@@ -17,7 +17,7 @@ agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 [**The product page**](https://zyxworks.github.io/agent-office/) ·
 [Our other tools](https://zyxworks.com/) ·
-[What we do for companies](https://runzyx.xyz)
+[What we do for companies](https://zyxworks.com)
 
 ```sh
 office on
@@ -778,9 +778,9 @@ MIT. See [LICENSE](LICENSE).
 
 ## Where this comes from
 
-Agent Office is one of the tools **[ZyxWorks](https://runzyx.xyz)**, a product
+Agent Office is one of the tools **[ZyxWorks](https://zyxworks.com)**, a product
 studio and forward deployed engineering practice, built for itself and gave away.
-It is the room [Zyx](https://runzyx.xyz#zyx) gets built in, and Zyx is the runtime
+It is the room [Zyx](https://zyxworks.com#zyx) gets built in, and Zyx is the runtime
 the studio runs on. If this is useful to you, that probably is too.
 
 The other one is **[MurmurFlow](https://zyxworks.github.io/murmurflow/)**:
@@ -792,13 +792,13 @@ transcribed on your own machine.
 [getting started](GETTING-STARTED.md) ·
 [issues](https://github.com/ZyxWorks/agent-office/issues)
 
-**Studio:** [what we do for companies](https://runzyx.xyz) ·
-[Zyx](https://runzyx.xyz#zyx) ·
+**Studio:** [what we do for companies](https://zyxworks.com) ·
+[Zyx](https://zyxworks.com#zyx) ·
 [GitHub](https://github.com/ZyxWorks)
 
 **Legal:** [MIT licence](LICENSE) ·
-[privacy](https://runzyx.xyz/legal#privacy) ·
-[imprint](https://runzyx.xyz/legal#imprint)
+[privacy](https://zyxworks.com/legal#privacy) ·
+[imprint](https://zyxworks.com/legal#imprint)
 
 *Agent Office is not affiliated with, endorsed by, or connected to tmux,
 Anthropic, or any agent vendor.*
