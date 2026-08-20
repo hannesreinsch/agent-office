@@ -10,6 +10,40 @@ HERE=${0:A:h}
 say() { print -P "%F{green}==>%f $*" }
 warn() { print -P "%F{yellow} !%f  $*" }
 
+# A checkout that MOVED is the case a plain grep-then-append cannot see: the line it wrote still
+# names a path that is gone, the grep for the CURRENT path misses, and a second line goes in
+# below the dead one. What that leaves is an error on every shell start (or every `tmux
+# source-file`) and two lines where the file documents one -- and it is not hypothetical: a
+# machine that had been through two folder renames was still sourcing office.tmux.conf from a
+# path retired months earlier, so tmux quietly used its own defaults. No theme, no prefix, no
+# office keys, and nothing on screen saying why.
+#
+# So: repoint the line we already own instead of appending beside it. Returns 1 when the file
+# holds no line of ours, which is the caller's signal to append a first one.
+_repoint() {                           # <file> <ERE matching OUR line> <the line it must be>
+  local file=$1 re=$2 want=$3 l seen=0 changed=0
+  local -a out
+  [[ -f $file ]] || return 1
+  while IFS= read -r l || [[ -n $l ]]; do
+    if [[ $l =~ $re ]]; then
+      # The first one becomes the truth; any later copy is dropped, so a file an older
+      # installer already doubled up heals on the next run rather than growing again.
+      (( seen )) && { changed=1; continue }
+      seen=1
+      # Normalised to the absolute path, deliberately: `~` and the full path mean the same
+      # thing to tmux and to zsh, so preserving which one you typed buys nothing and costs a
+      # comparison that has to be right about $HOME. Written once, stable on every run after.
+      [[ $l == "$want" ]] || { changed=1 }
+      out+=("$want")
+    else
+      out+=("$l")
+    fi
+  done < $file
+  (( seen )) || return 1
+  (( changed )) && print -rl -- "$out[@]" > $file
+  return 0
+}
+
 # The look is opt-in on purpose, the same way theme/office-theme.tmux.conf is:
 # an installer that repaints a terminal you already tuned is a bad guest.
 THEME=""
@@ -56,8 +90,8 @@ LINE="source $HERE/office.zsh"
 # second copy every time they re-run the installer.
 if zsh -ic 'whence -w office' 2>/dev/null | grep -q function; then
   say "already loaded by your zsh startup files"
-elif grep -qF "$LINE" $RC 2>/dev/null; then
-  say "already sourced from $RC"
+elif _repoint $RC '^[[:space:]]*(source|\.)[[:space:]]+.*/office\.zsh[[:space:]]*$' "$LINE"; then
+  say "sourced from $RC"
 else
   print "\n# office — one command for a multi-agent tmux cockpit\n$LINE" >> $RC
   say "added to $RC"
@@ -78,15 +112,20 @@ fi
 
 # --- 2. tmux -----------------------------------------------------------------
 TLINE="source-file $HERE/office.tmux.conf"
-# ~ and the full path are the same line to tmux, so match both — otherwise a
-# re-run appends a duplicate that re-sources AFTER anything you set yourself.
-if grep -qF -e "$TLINE" -e "source-file ${HERE/#$HOME/~}/office.tmux.conf" $HOME/.tmux.conf 2>/dev/null; then
-  say "already sourced from ~/.tmux.conf"
+# _repoint normalises the line to the absolute path and keeps exactly one of it — a duplicate
+# would re-source AFTER anything you set yourself, and a stale one is what leaves a machine on
+# tmux's defaults with nothing on screen saying why.
+if _repoint $HOME/.tmux.conf '^[[:space:]]*source(-file)?[[:space:]]+.*/office\.tmux\.conf[[:space:]]*$' "$TLINE"; then
+  say "sourced from ~/.tmux.conf"
 else
   print "\n# office — bindings and pane borders (colours stay yours)\n$TLINE" >> $HOME/.tmux.conf
   say "added to ~/.tmux.conf"
   warn "if you set pane-border-format yourself, keep it AFTER that line"
 fi
+# The theme is opt-in, so this NEVER adds it — but a line you opted into once still has to
+# survive the folder moving, same as the one above.
+_repoint $HOME/.tmux.conf '^[[:space:]]*source(-file)?[[:space:]]+.*/office-theme\.tmux\.conf[[:space:]]*$' \
+  "source-file $HERE/theme/office-theme.tmux.conf" && say "theme sourced from ~/.tmux.conf"
 tmux source-file $HOME/.tmux.conf 2>/dev/null && say "reloaded a running tmux"
 
 # --- 3. the iTerm2 look (only with --theme) -----------------------------------
