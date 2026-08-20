@@ -59,6 +59,7 @@ jobs:
         run: |
           zsh -n office.zsh
           zsh -n bin/attn-probe
+          zsh -n bin/root-probe
           zsh -n bin/ctx-probe
           zsh -n bin/zoom-probe
           zsh -n install.sh
@@ -89,6 +90,11 @@ jobs:
           grep -c 'office.zsh' "$HOME/.zshrc"
           test "$(grep -c 'source-file' "$HOME/.tmux.conf")" = 1
           test -L "$HOME/.local/bin/office"
+
+      # First, and needs no tmux server: it decides WHICH repo an office opens on, so a
+      # break here makes every probe below open the right office on the wrong directory.
+      - name: root-probe
+        run: bin/root-probe
 
       - name: zoom-probe
         run: bin/zoom-probe
