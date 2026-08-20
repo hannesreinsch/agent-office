@@ -460,6 +460,7 @@ Environment variables, set before sourcing `office.zsh`. All optional.
 | `OFFICE_ON_CMD` | *(empty)* | your own command, run when you walk in |
 | `OFFICE_OFF_CMD` | *(empty)* | your own command, run when you go home |
 | `OFFICE_RUNNING_CHECK` | `false` | exits 0 when it is already up |
+| `OFFICE_ON_ALWAYS` | `0` | `1` runs `OFFICE_ON_CMD` every walk-in, even when the check says up |
 
 The chat pane is the interesting one. Point `OFFICE_CHAT_CMD` at whatever
 talking to your agent looks like for you, and that becomes the pane:
@@ -477,6 +478,21 @@ OFFICE_ON_CMD='my-stack up'
 OFFICE_OFF_CMD='my-stack down'
 OFFICE_RUNNING_CHECK='pgrep -q my-server'
 ```
+
+The check is there so walking in does not start a second copy of something
+already running. If your start command also **updates** — pulls, rewrites its
+units, restarts its own processes on the new code — then "already up" and
+"already current" stop being the same sentence, and the check skips exactly the
+run you wanted. Add:
+
+```sh
+OFFICE_ON_ALWAYS=1
+```
+
+and the check stops gating the start. Do that rather than setting
+`OFFICE_RUNNING_CHECK='false'`: the check is a **status** predicate, and
+`office off` runs `OFFICE_OFF_CMD` only when it says something is up. A check
+that always says "down" means going home quietly stops stopping your stack.
 
 (The older `OFFICE_ALWAYS_ON_START` / `_STOP` / `_CHECK` names still work.)
 

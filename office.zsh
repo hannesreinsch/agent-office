@@ -1130,14 +1130,30 @@ _office_total_mb() { _office_inventory | awk '{for(i=1;i<=NF;i++) if ($i ~ /MB$/
 #   OFFICE_OFF_CMD         run when you go home
 #   OFFICE_RUNNING_CHECK   exits 0 when it is already up, so `office on` does
 #                          not start it twice
+#   OFFICE_ON_ALWAYS       set it when OFFICE_ON_CMD is safe to run twice
 #
 # (The older OFFICE_ALWAYS_ON_START / _STOP / _CHECK names still work.)
+#
+# OFFICE_ON_ALWAYS exists because "already up" and "already current" are not the
+# same sentence. A start command that also UPDATES — pulls, rewrites its units,
+# restarts its own processes on the new code — is exactly the one the running
+# check skips, so walking in gives you back this morning's build and nothing on
+# screen says why. Set OFFICE_ON_ALWAYS=1 and the check no longer gates the
+# start; it keeps answering the other two questions honestly.
+#
+# It is a separate switch and not `OFFICE_RUNNING_CHECK=false` on purpose. That
+# check is a STATUS predicate, read in three places: this skip, the up/down line
+# in `office status`, and `office off`, which runs OFFICE_OFF_CMD only when the
+# check says something is up. Lie to it and going home silently stops stopping
+# your stack — the Mac never sleeps, and the one word that was supposed to end
+# the day is the one that quietly does not.
 #
 # Empty by default, because the honest default is to touch nothing you did not
 # ask for. Set them and going home really does mean everything is off.
 : ${OFFICE_ON_CMD:=${OFFICE_ALWAYS_ON_START:-}}                # run by `office on`
 : ${OFFICE_OFF_CMD:=${OFFICE_ALWAYS_ON_STOP:-}}                # run by `office off`
 : ${OFFICE_RUNNING_CHECK:=${OFFICE_ALWAYS_ON_CHECK:-false}}    # exits 0 when it is up
+: ${OFFICE_ON_ALWAYS:=0}                                       # 1 = run ON_CMD every walk-in
 _office_always_on() { eval "$OFFICE_RUNNING_CHECK"; }
 
 # walking in restores whatever going home stopped — `office on` is the exact
@@ -1147,7 +1163,7 @@ _office_always_on_up() {
   # same trap as _office_editor: a one-word OFFICE_ON_CMD would be tested one
   # character at a time and the stack would never come up.
   command -v ${OFFICE_ON_CMD%% *} >/dev/null || return 0
-  _office_always_on && return 0
+  (( OFFICE_ON_ALWAYS )) || { _office_always_on && return 0 }
   print -P "%F{green}==> $OFFICE_ON_CMD%f"
   eval "$OFFICE_ON_CMD"
 }
