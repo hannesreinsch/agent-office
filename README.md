@@ -5,7 +5,7 @@
 Each one in its own git worktree. The one that has stopped and is waiting on you
 says so, on its own border, without being asked.
 
-[![CI](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/hannesreinsch/agent-office/actions/workflows/ci.yml)
+[![CI](https://github.com/ZyxWorks/agent-office/actions/workflows/ci.yml/badge.svg)](https://github.com/ZyxWorks/agent-office/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-c9903f)](LICENSE)
 ![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-6a6c77)
 ![No daemon](https://img.shields.io/badge/daemons-0-6a6c77)
@@ -15,7 +15,7 @@ Several coding-agent sessions side by side, each in its own git worktree, plus a
 shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
-[**The product page**](https://hannesreinsch.github.io/agent-office/) ·
+[**The product page**](https://zyxworks.github.io/agent-office/) ·
 [Our other tools](https://zyxworks.com/) ·
 [What we do for companies](https://runzyx.xyz)
 
@@ -91,7 +91,7 @@ off.
 
 ```sh
 brew install tmux fzf fd micro bat          # needs Homebrew: https://brew.sh
-git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office
+git clone https://github.com/ZyxWorks/agent-office.git ~/agent-office
 ~/agent-office/install.sh
 exec zsh && office on
 ```
@@ -130,7 +130,7 @@ Then, inside WSL:
 ```sh
 sudo apt update && sudo apt install -y tmux zsh git fzf fd-find micro bat
 mkdir -p ~/.local/bin && ln -sf "$(which fdfind)" ~/.local/bin/fd   # Debian calls it fdfind
-git clone https://github.com/hannesreinsch/agent-office.git ~/agent-office
+git clone https://github.com/ZyxWorks/agent-office.git ~/agent-office
 ~/agent-office/install.sh
 exec zsh && office on
 ```
@@ -783,18 +783,18 @@ studio and forward deployed engineering practice, built for itself and gave away
 It is the room [Zyx](https://runzyx.xyz#zyx) gets built in, and Zyx is the runtime
 the studio runs on. If this is useful to you, that probably is too.
 
-The other one is **[MurmurFlow](https://hannesreinsch.github.io/murmurflow/)**:
+The other one is **[MurmurFlow](https://zyxworks.github.io/murmurflow/)**:
 hold a key, say it, let go, and the words land at your cursor in any app,
 transcribed on your own machine.
 
-**Product:** [page](https://hannesreinsch.github.io/agent-office/) ·
+**Product:** [page](https://zyxworks.github.io/agent-office/) ·
 [all our tools](https://zyxworks.com/) ·
 [getting started](GETTING-STARTED.md) ·
-[issues](https://github.com/hannesreinsch/agent-office/issues)
+[issues](https://github.com/ZyxWorks/agent-office/issues)
 
 **Studio:** [what we do for companies](https://runzyx.xyz) ·
 [Zyx](https://runzyx.xyz#zyx) ·
-[GitHub](https://github.com/hannesreinsch)
+[GitHub](https://github.com/ZyxWorks)
 
 **Legal:** [MIT licence](LICENSE) ·
 [privacy](https://runzyx.xyz/legal#privacy) ·
