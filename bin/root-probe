@@ -1,0 +1,63 @@
+#!/usr/bin/env zsh
+# root-probe — does `office on` open the repo you MEANT, from wherever you are?
+#
+#     bin/root-probe
+#
+# No tmux server and no attach: the two functions that decide WHICH directory an
+# office opens on are pure, so a throwaway CODE_ROOT with three git repos in it
+# is a complete stand-in. That is the whole point of having this probe — the
+# decision used to be provable only by opening an office and reading the title.
+#
+# The three cases are the three ways it has actually been wrong:
+#
+#   - OFFICE_DEFAULT empty is documented as "the one you are in". The substring
+#     search matched EVERY line on an empty query and returned whatever sorted
+#     first, so standing in `beta` opened `alpha`. From anywhere. For anyone.
+#   - a name that does not resolve fell back to $PWD in SILENCE. A CODE_ROOT
+#     pointing at a renamed-away folder therefore opened an office on $HOME and
+#     said nothing, which is indistinguishable from the tool being broken.
+#   - a name that DOES resolve must still win from an unrelated directory.
+emulate -L zsh
+setopt err_exit pipe_fail
+
+root=$(cd "$(mktemp -d)" && pwd -P)   # -P: macOS hands back /var, git and cd say /private/var
+trap 'rm -rf "$root"' EXIT
+for r in alpha beta gamma; do
+  mkdir -p "$root/$r" && git -C "$root/$r" init -q
+done
+
+export CODE_ROOT=$root
+source "${0:A:h}/../office.zsh" >/dev/null 2>&1
+export CODE_ROOT=$root                  # the package re-defaults it on source
+
+fail=0
+check() {                               # <what> <got> <want>
+  if [[ $2 == $3 ]]; then print "  ok   $1"
+  else print -u2 "  FAIL $1\n         got:  $2\n         want: $3"; fail=1
+  fi
+}
+
+cd "$root/beta"
+
+# 1. no default = the repo you are standing in, not the first one on disk.
+OFFICE_DEFAULT= ; dir=$(_office_find "$OFFICE_DEFAULT") || true
+[[ -z $dir ]] && dir=$(_office_fallback "$OFFICE_DEFAULT" 2>/dev/null)
+check "empty default opens the repo you are in" "$dir" "$root/beta"
+
+# 2. a name that resolves wins from anywhere.
+dir=$(_office_find gamma)
+check "a named repo opens from another repo" "$dir" "$root/gamma"
+
+# 3. a name that does NOT resolve falls back — and says so on stderr.
+dir=$(_office_fallback nosuchrepo 2>"$root/said")
+check "an unresolved name still opens something" "$dir" "$root/beta"
+if grep -q "nosuchrepo" "$root/said"; then print "  ok   and it says which name missed"
+else print -u2 "  FAIL the fallback was silent"; fail=1; fi
+
+# 4. a CODE_ROOT that is not there names ITSELF as the problem, not the name.
+CODE_ROOT=$root/gone dir=$(_office_fallback anything 2>"$root/said2") || true
+if grep -q "CODE_ROOT" "$root/said2"; then print "  ok   a dead CODE_ROOT names itself"
+else print -u2 "  FAIL a dead CODE_ROOT blamed the name instead"; fail=1; fi
+
+(( fail )) && { print -u2 "\nroot-probe: FAILED"; exit 1 }
+print "\nroot-probe: ok"

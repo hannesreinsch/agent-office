@@ -111,10 +111,37 @@ _office_repos() {
 
 _office_find() {                       # <name> -> absolute repo path
   local q=$1 hit
+  # An EMPTY name is not a search, it is the absence of one, and it must find nothing so the
+  # caller can fall back to the repo you are standing in. Without this guard the substring pass
+  # below runs `grep -i -- ""`, which matches every line and hands back whatever sorts first --
+  # so `office on` with the documented default (OFFICE_DEFAULT empty, "the one you are in")
+  # opened the alphabetically first repo under CODE_ROOT from anywhere. It only looked correct
+  # while CODE_ROOT pointed at nothing and the search came back empty for the wrong reason.
+  [[ -n $q ]] || return 1
   [[ -d $q ]] && { (cd "$q" && pwd); return }
   hit=$(_office_repos | grep -iE "/${q}$" | head -1)
   [[ -n $hit ]] || hit=$(_office_repos | grep -i -- "$q" | head -1)
   [[ -n $hit ]] && print -r -- "$hit"
+}
+
+# Where `office on` goes when the default did not resolve: the repo you are standing in. That is
+# the right answer often enough to keep as the fallback -- and exactly why it has to SAY when it
+# is one. A CODE_ROOT left pointing at a folder that has since been renamed finds nothing, so
+# `office on` opened an office on $HOME, named after the home folder, with nothing on screen
+# connecting the two. One line turns that from "all of it is broken" into a fixable sentence.
+_office_fallback() {                   # <the name that was wanted> -> the dir to open instead
+  local want=$1 here; here=$(_office_root "$PWD")
+  if [[ -n $want ]]; then              # a name WAS asked for and did not resolve -- always say so
+    if [[ ! -d $CODE_ROOT ]]; then
+      print -u2 -P "%F{yellow}office: CODE_ROOT is not a folder:%f ${CODE_ROOT/#$HOME/~}"
+      print -u2    "  set it to where you keep your repos:  export CODE_ROOT=~/your/repos"
+    else
+      print -u2 -P "%F{yellow}office: no repo called '$want' under%f ${CODE_ROOT/#$HOME/~}"
+      print -u2    "  see what is there:  office pick"
+    fi
+    print -u2 "  opening ${here/#$HOME/~} instead."
+  fi
+  print -r -- "$here"
 }
 
 # attach. Plain tmux on purpose: ONE iTerm2 window, real splits inside it.
@@ -1256,7 +1283,7 @@ office() {
   case $cmd in
     on|up|in|back|work|resume)
       dir=$(_office_find "$OFFICE_DEFAULT") || true
-      [[ -z $dir ]] && dir=$(_office_root "$PWD")
+      [[ -z $dir ]] && dir=$(_office_fallback "$OFFICE_DEFAULT")
       _office_open "$dir" ;;
     pick)
       dir=$(_office_repos | sed "s|^$HOME/|~/|" \
