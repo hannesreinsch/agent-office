@@ -16,7 +16,7 @@ shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 [**The product page**](https://hannesreinsch.github.io/agent-office/) ·
-[Our other tools](https://hannesreinsch.github.io/) ·
+[Our other tools](https://hannesreinsch.github.io/zyxworks.github.io/) ·
 [What we do for companies](https://runzyx.xyz)
 
 ```sh
@@ -778,17 +778,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Where this comes from
 
-Agent Office is one of the tools **[exwyezed](https://runzyx.xyz)**, a product studio
-and forward deployed engineering practice, built for itself and gave away. It is
-the room [Zyx](https://runzyx.xyz#zyx) gets built in, and Zyx is the runtime the
-studio runs on. If this is useful to you, that probably is too.
+Agent Office is one of the tools **[ZyxWorks](https://runzyx.xyz)**, a product
+studio and forward deployed engineering practice, built for itself and gave away.
+It is the room [Zyx](https://runzyx.xyz#zyx) gets built in, and Zyx is the runtime
+the studio runs on. If this is useful to you, that probably is too.
 
 The other one is **[MurmurFlow](https://hannesreinsch.github.io/murmurflow/)**:
 hold a key, say it, let go, and the words land at your cursor in any app,
 transcribed on your own machine.
 
 **Product:** [page](https://hannesreinsch.github.io/agent-office/) ·
-[all our tools](https://hannesreinsch.github.io/) ·
+[all our tools](https://hannesreinsch.github.io/zyxworks.github.io/) ·
 [getting started](GETTING-STARTED.md) ·
 [issues](https://github.com/hannesreinsch/agent-office/issues)
 

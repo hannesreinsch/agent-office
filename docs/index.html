@@ -12,7 +12,7 @@
 <meta name="twitter:card" content="summary">
 <!-- Not listed anywhere: a visitor gets here by typing the URL or from the index. "noindex" is
      what actually removes the page from a search index; robots.txt only stops the crawl, and the
-     one that governs this host lives in the hannesreinsch.github.io repo. Lift this once there
+     one that governs this host lives in the zyxworks.github.io repo. Lift this once there
      is a proper Impressum. -->
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="ai-content-declaration" content="noai, noimageai">
@@ -21,14 +21,14 @@
   is what lets GitHub Pages serve this straight out of /docs and keeps the same promise the product
   makes: about two thousand lines of zsh and a tmux config, and nothing else at runtime.
 
-  The brand is exwyezed's: the woven three-stroke mark, Sora and Geist Mono self-hosted, the
+  The brand is ZyxWorks': the woven three-stroke mark, Sora and Geist Mono self-hosted, the
   monochrome ramp (near-black page, warm-white ink, one grey scale) and brass as the single signal
-  colour rather than an accent. The drifting backdrop marks are the field variant from the zyx
+  colour rather than an accent. The drifting backdrop marks are the field variant from the ZyxWorks
   site, ported to plain JS: fixed, behind everything, never over text, and still when the viewer
   has asked for reduced motion.
 -->
 <style>
-  /* Self-hosted, copied from the zyx build. No Google Fonts request, ever. */
+  /* Self-hosted, copied from the Zyx build. No Google Fonts request, ever. */
   @font-face {
     font-family: Sora; font-style: normal; font-weight: 400; font-display: swap;
     src: url("fonts/sora-400.woff2") format("woff2");
@@ -64,7 +64,7 @@
     --signal-ink: #0b0c10;
   }
   /* DARK ONLY, and that is the ratified brand rather than an omission. The light ramp exists in
-     the zyx codebase and is PARKED there by decision ("doesn't look this cool, park it for later"),
+     the Zyx codebase and is PARKED there by decision ("doesn't look this cool, park it for later"),
      with the toggle still in the tree and nothing activating it. A product page that flips itself
      white because a visitor's OS is in light mode is a second brand, shown to exactly the people
      we did not choose it for. `color-scheme: dark` above is what keeps the scrollbars and any form
@@ -101,7 +101,7 @@
   strong { color: var(--ink); font-weight: 600; }
   code { font-family: "Geist Mono", ui-monospace, Menlo, monospace; font-size: 0.9em; }
 
-  /* --- the mark, and the tips-into-joint hover it shares with the zyx lockups --- */
+  /* --- the mark, and the tips-into-joint hover it shares with the Zyx lockups --- */
   .mk line { stroke: currentColor; stroke-width: 9; stroke-linecap: round; }
   .mk-vanish line { stroke-dasharray: 44; stroke-dashoffset: 0; transition: stroke-dashoffset 0.55s cubic-bezier(0.22, 0.61, 0.36, 1); }
   @media (hover: hover) {
@@ -111,7 +111,7 @@
   /* --- the backdrop: night-sky marks, fixed, never over text --- */
   #backdrop { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; }
   /* A phone has no margin for the field to drift in: the desktop placement puts a 116px mark
-     straight through a headline. The rule the zyx backdrop keeps is that it never COMPETES with
+     straight through a headline. The rule the Zyx backdrop keeps is that it never COMPETES with
      text, and the answer is a field built for the width rather than no field at all - the same
      move the constellation makes with a per-mark phone slot. Below 900px the script swaps in
      fewer, smaller marks pinned to the margins, and the depth grade drops a step so they read as
@@ -223,11 +223,11 @@
 
   <nav>
     <div class="lockup">
-      <a class="up" href="https://hannesreinsch.github.io/">
+      <a class="up" href="https://hannesreinsch.github.io/zyxworks.github.io/">
         <svg class="mk mk-vanish" viewBox="0 0 120 120" width="22" height="22" fill="none" aria-hidden="true">
           <line x1="60" y1="60" x2="60" y2="30"/><line x1="60" y1="60" x2="30" y2="82"/><line x1="60" y1="60" x2="94" y2="74"/>
         </svg>
-        <span>exwyezed</span>
+        <span>ZyxWorks</span>
       </a>
       <span class="crumb">/</span>
       <span class="name">agent office</span>
@@ -346,11 +346,11 @@
   <div class="shell">
     <div class="foot-top">
       <div>
-        <a class="lockup" href="https://hannesreinsch.github.io/">
+        <a class="lockup" href="https://hannesreinsch.github.io/zyxworks.github.io/">
           <svg class="mk mk-vanish" viewBox="0 0 120 120" width="22" height="22" fill="none" aria-hidden="true">
             <line x1="60" y1="60" x2="60" y2="30"/><line x1="60" y1="60" x2="30" y2="82"/><line x1="60" y1="60" x2="94" y2="74"/>
           </svg>
-          <span class="name">exwyezed</span>
+          <span class="name">ZyxWorks</span>
         </a>
         <p class="tagline">A product studio and forward deployed engineering practice.
         Agent Office is one of the things we built for ourselves and gave away.</p>
@@ -363,7 +363,7 @@
       </div>
       <div class="col">
         <h4>Studio</h4>
-        <a href="https://hannesreinsch.github.io/">Our other tools</a>
+        <a href="https://hannesreinsch.github.io/zyxworks.github.io/">Our other tools</a>
         <a href="https://runzyx.xyz">What we do for companies</a>
         <a href="https://runzyx.xyz#zyx">Zyx</a>
       </div>
@@ -375,7 +375,7 @@
       </div>
     </div>
     <div class="copyright">
-      &copy; <span id="year">2026</span> EXWYEZED &middot; ZYX &middot; FORWARD DEPLOYED AI FOR YOUR COMPANY
+      &copy; <span id="year">2026</span> ZYXWORKS &middot; ZYX &middot; FORWARD DEPLOYED AI FOR YOUR COMPANY
       <div class="disclaimer">Agent Office is not affiliated with, endorsed by, or connected to
       tmux, Anthropic, or any agent vendor.</div>
     </div>
@@ -396,8 +396,8 @@
     });
   });
 
-  // The backdrop: nine hand-placed marks on a slow night-sky wander, ported from the zyx site's
-  // field variant. Positions, sizes and the depth grade are the ratified ones. The cursor never
+  // The backdrop: nine hand-placed marks on a slow night-sky wander, ported from the field
+  // variant on the ZyxWorks site. Positions, sizes and the depth grade are the ratified ones. The cursor never
   // changes the motion; hovering a glyph makes its strokes vanish from the tips into the joint.
   (function () {
     // The ratified desktop field, and the narrow one beside it. Same glyph, same motion, same
