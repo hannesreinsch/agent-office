@@ -16,7 +16,7 @@ shell, a file editor that follows that shell, and a chat pane wired to your own
 agent. Claude Code out of the box, Codex or any other CLI with one variable.
 
 [**The product page**](https://hannesreinsch.github.io/agent-office/) ·
-[Our other tools](https://hannesreinsch.github.io/zyxworks.github.io/) ·
+[Our other tools](https://zyxworks.com/) ·
 [What we do for companies](https://runzyx.xyz)
 
 ```sh
@@ -788,7 +788,7 @@ hold a key, say it, let go, and the words land at your cursor in any app,
 transcribed on your own machine.
 
 **Product:** [page](https://hannesreinsch.github.io/agent-office/) ·
-[all our tools](https://hannesreinsch.github.io/zyxworks.github.io/) ·
+[all our tools](https://zyxworks.com/) ·
 [getting started](GETTING-STARTED.md) ·
 [issues](https://github.com/hannesreinsch/agent-office/issues)
 
