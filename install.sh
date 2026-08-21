@@ -163,7 +163,16 @@ me = prof["Profiles"][0]
 # at all gets the inheritance the copy was imitating, live and for ever.
 #
 # The rule, for anything added here later: office may set what office is FOR
-# (its look). Nothing about your keyboard is office's to own.
+# (its look, and how scrolling behaves inside it). Nothing about your keyboard
+# is office's to own.
+#
+# "Scrollback in Alternate Screen": false is in the JSON for one reason. iTerm
+# defaults it to TRUE, which mixes an alt-screen app's lines into the window's
+# own scrollback. tmux and every full-screen app inside it run on that screen,
+# so a wheel-up that the app does not consume walks OUT of the office and into
+# whatever the shell printed before tmux started — the login banner, the last
+# `office off`. It reads as "my chat lost its history" and it is neither tmux's
+# scrollback nor the app's, which is why no key inside the office can fix it.
 pl = pathlib.Path.home()/"Library/Preferences/com.googlecode.iterm2.plist"
 parent = None
 if pl.exists():
@@ -203,6 +212,7 @@ elif [[ -n $THEME ]]; then
   say "no iTerm2: skipping the look. Every key works without it"
 else
   say "the keys need no terminal setup. Want the look too? ./install.sh --theme"
+  say "  (--theme also stops a wheel-up scrolling out of the office into the old shell)"
 fi
 
 print
